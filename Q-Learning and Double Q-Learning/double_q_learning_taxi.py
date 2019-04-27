@@ -4,7 +4,7 @@ import numpy as np
 
 # hyper-parameters for the Q-learning algorithm
 NUM_EPISODES = 1000000   # number of episodes to run
-GAMMA = 0.6              # discount factor
+GAMMA = 0.9              # discount factor
 ALPHA = 0.5              # learning rate
 
 

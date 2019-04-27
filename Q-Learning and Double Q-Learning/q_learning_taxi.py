@@ -3,7 +3,7 @@ import numpy as np
 
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPISODES = 100000   # number of episodes to run
+NUM_EPISODES = 1000000  # number of episodes to run
 GAMMA = 0.9             # discount factor
 ALPHA = 0.5             # learning rate
 
@@ -80,8 +80,8 @@ def main():
             total_steps += 1
 
         # decay the exploration factor
-        if epsilon > 0.1:
-            epsilon -= 1 / (0.1 * NUM_EPISODES)
+        if epsilon > 0.01:
+            epsilon -= 1 / (0.01 * NUM_EPISODES)
 
         print("\r", "Epsilon: {:.3f}, Episode: {}, Avg Steps Taken per Episode: {:.3f}, Avg Reward per Episode: {:.3f}"
               .format(epsilon, episode, total_steps / float(episode), total_reward / float(episode)),
