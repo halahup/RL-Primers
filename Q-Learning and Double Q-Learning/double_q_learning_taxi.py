@@ -79,8 +79,8 @@ def main():
             total_steps += 1
 
         # decay the exploration factor
-        if epsilon > 0.1:
-            epsilon -= 1 / (0.1 * NUM_EPISODES)
+        if epsilon > 0.01:
+            epsilon -= 1 / (0.01 * NUM_EPISODES)
 
         print("\r", "Epsilon: {:.3f}, Episode: {}, Avg Steps Taken per Episode: {:.3f}, Avg Reward per Episode: {:.3f}"
               .format(epsilon, episode, total_steps / float(episode), total_reward / float(episode)),
