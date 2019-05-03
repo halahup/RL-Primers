@@ -107,7 +107,10 @@ def main():
             new_state_action_values = agent(scalar_to_one_hot(scalar=new_state, size=env.observation_space.n))
 
             # define the target for the taken action
-            action_value_target = reward + GAMMA * torch.max(new_state_action_values).detach().item()
+            if done:
+                action_value_target = reward
+            else:
+                action_value_target = reward + GAMMA * torch.max(new_state_action_values).detach().item()
 
             # print(action_value_target)
             # print(action_values_target)

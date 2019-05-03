@@ -2,10 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7cf9e68b-fa63-4065-b6a0-bc3b60e02825" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/Gym Primer.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Gym Primer.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/stepanulyanin.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/stepanulyanin.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py" beforeDir="false" afterPath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -27,8 +24,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="415">
-              <caret line="125" column="22" lean-forward="true" selection-start-line="125" selection-start-column="22" selection-end-line="125" selection-end-column="22" />
+            <state relative-caret-position="530">
+              <caret line="63" selection-start-line="63" selection-end-line="63" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -60,7 +57,7 @@
     </option>
   </component>
   <component name="ProjectFrameBounds" fullScreen="true">
-    <option name="width" value="2048" />
+    <option name="width" value="1022" />
     <option name="height" value="1152" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
@@ -218,23 +215,22 @@
       <updated>1554774310288</updated>
       <workItem from="1554774312526" duration="1412000" />
       <workItem from="1556301588842" duration="14797000" />
-      <workItem from="1556765701281" duration="13157000" />
+      <workItem from="1556765701281" duration="15745000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="29366000" />
+    <option name="totallyTimeSpent" value="31954000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="0" width="2048" height="1152" extended-state="0" />
-    <editor active="true" />
+    <frame x="0" y="0" width="1018" height="1152" extended-state="0" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.1560319" />
+      <window_info content_ui="combo" id="Project" order="0" weight="0.31938776" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.30868763" />
+      <window_info anchor="bottom" id="Run" order="2" weight="0.30868763" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -243,7 +239,7 @@
       <window_info anchor="bottom" id="Version Control" order="8" weight="0.32902032" />
       <window_info anchor="bottom" id="Database Changes" order="9" />
       <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" />
-      <window_info anchor="bottom" id="Terminal" order="11" weight="0.32809612" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="11" visible="true" weight="0.32809612" />
       <window_info anchor="bottom" id="Python Console" order="12" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
@@ -260,7 +256,7 @@
     <SUITE FILE_PATH="coverage/Gym_Primer$main.coverage" NAME="main Coverage Results" MODIFIED="1554775431875" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/RL_Primers$double_q_learning_taxi.coverage" NAME="double_q_learning_taxi Coverage Results" MODIFIED="1556835368881" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Q-Learning and Double Q-Learning" />
     <SUITE FILE_PATH="coverage/RL_Primer$main.coverage" NAME="td_q_learning Coverage Results" MODIFIED="1556312778919" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/RL_Primers$deep_q_learning_taxi.coverage" NAME="deep_q_learning_taxi Coverage Results" MODIFIED="1556845275692" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Deep Q-Network" />
+    <SUITE FILE_PATH="coverage/RL_Primers$deep_q_learning_taxi.coverage" NAME="deep_q_learning_taxi Coverage Results" MODIFIED="1556849758658" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Deep Q-Network" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/.pytest_cache/README.md" />
@@ -289,8 +285,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="415">
-          <caret line="125" column="22" lean-forward="true" selection-start-line="125" selection-start-column="22" selection-end-line="125" selection-end-column="22" />
+        <state relative-caret-position="530">
+          <caret line="63" selection-start-line="63" selection-end-line="63" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
