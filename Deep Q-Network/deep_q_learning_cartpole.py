@@ -8,9 +8,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPISODES = 100000   # number of episodes to run
-GAMMA = 0.9             # discount factor
-ALPHA = 0.01            # learning rate
+NUM_EPISODES = 10000     # number of episodes to run
+GAMMA = 0.9              # discount factor
+ALPHA = 0.5              # learning rate
+FRACTION_EXPLORE = 0.50  # fraction of the time to spend on any kind of exploring
 
 
 # the Q-table is replaced by a neural network
@@ -19,12 +20,12 @@ class Agent(nn.Module):
         super(Agent, self).__init__()
 
         self.fc_in = nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True)
-        self.gn = nn.GroupNorm(num_groups=16, num_channels=64)
+        # self.gn = nn.GroupNorm(num_groups=16, num_channels=64)
         self.lrelu = nn.LeakyReLU(negative_slope=0.1)
         self.fc_out = nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
 
     def forward(self, x):
-        x = self.lrelu(self.gn(self.fc_in(x)))
+        x = self.lrelu(self.fc_in(x))
         x = self.fc_out(x)
         return x
 
@@ -47,12 +48,12 @@ def main():
     writer = SummaryWriter()
 
     # create the environment
-    env = gym.make('Taxi-v2')
+    env = gym.make('CartPole-v1')
 
     # Q-table is replaced by the agent driven by a neural network architecture
-    agent = Agent(observation_space_size=env.observation_space.n,
+    agent = Agent(observation_space_size=env.observation_space.shape[0],
                   action_space_size=env.action_space.n,
-                  hidden_size=64)
+                  hidden_size=16)
 
     criterion = nn.MSELoss(reduction='sum')
 
@@ -65,7 +66,7 @@ def main():
     # define the epsilon for the exploration-exploitation balance
     # we start out with the fully exploratory behavior
     epsilon = 1.0
-    min_epsilon = 0.1
+    min_epsilon = 0.01
 
     # capture the steps and the average rewards
     plt_avg_steps, plt_avg_rewards = list(), list()
@@ -83,8 +84,10 @@ def main():
 
         while not done:
 
+            env.render()
+
             # get the action values
-            action_values = agent(scalar_to_one_hot(scalar=current_state, size=env.observation_space.n))
+            action_values = agent(torch.Tensor(current_state).unsqueeze(dim=0))
 
             # define the target values for the actions by detaching and deep copying the action vector
             action_values_target = action_values.detach().clone()
@@ -104,7 +107,7 @@ def main():
             new_state, reward, done, _ = env.step(action=action)
 
             # pass the new state through the agent to get the action values of the next state
-            new_state_action_values = agent(scalar_to_one_hot(scalar=new_state, size=env.observation_space.n))
+            new_state_action_values = agent(torch.Tensor(current_state).unsqueeze(dim=0))
 
             # define the target for the taken action
             if done:
@@ -135,16 +138,16 @@ def main():
             # increment the total reward
             total_reward += reward
 
-            # proceed to the next state
-            current_state = new_state
-
             # increment the steps per episode counter
             steps += 1
             total_steps += 1
 
+            # proceed to the next state
+            current_state = new_state
+
         # decay the exploration factor
         if epsilon > min_epsilon:
-            epsilon -= 1 / (0.25 * NUM_EPISODES)
+            epsilon -= 1 / (FRACTION_EXPLORE * NUM_EPISODES)
 
         # append the average steps and average rewards
         avg_steps = total_steps / float(episode)

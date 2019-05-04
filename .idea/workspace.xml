@@ -2,7 +2,10 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7cf9e68b-fa63-4065-b6a0-bc3b60e02825" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py" beforeDir="false" afterPath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Deep Q-Network/average_rewards.png" beforeDir="false" afterPath="$PROJECT_DIR$/Deep Q-Network/average_rewards.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Deep Q-Network/average_steps.png" beforeDir="false" afterPath="$PROJECT_DIR$/Deep Q-Network/average_steps.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py" beforeDir="false" afterPath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_cartpole.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -22,10 +25,10 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py">
+        <entry file="file://$PROJECT_DIR$/Deep Q-Network/deep_q_learning_cartpole.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="530">
-              <caret line="63" selection-start-line="63" selection-end-line="63" />
+            <state relative-caret-position="375">
+              <caret line="25" lean-forward="true" selection-start-line="25" selection-end-line="25" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -56,9 +59,10 @@
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" fullScreen="true">
-    <option name="width" value="1022" />
-    <option name="height" value="1152" />
+  <component name="ProjectFrameBounds">
+    <option name="y" value="23" />
+    <option name="width" value="2048" />
+    <option name="height" value="1129" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
@@ -78,12 +82,6 @@
               <item name="RL-Primers" type="b2602c69:ProjectViewProjectNode" />
               <item name="RL-Primers" type="462c0819:PsiDirectoryNode" />
               <item name="Deep Q-Network" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="RL-Primers" type="b2602c69:ProjectViewProjectNode" />
-              <item name="RL-Primers" type="462c0819:PsiDirectoryNode" />
-              <item name="Deep Q-Network" type="462c0819:PsiDirectoryNode" />
-              <item name="runs" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -123,8 +121,8 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.deep_q_learning_taxi">
-    <configuration name="deep_q_learning_taxi" type="PythonConfigurationType" factoryName="Python" temporary="true">
+  <component name="RunManager" selected="Python.deep_q_learning_cartpole">
+    <configuration name="deep_q_learning_cartpole" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="Gym Primer" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -137,7 +135,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_cartpole.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -193,11 +191,11 @@
     <list>
       <item itemvalue="Python.q_learning" />
       <item itemvalue="Python.double_q_learning_taxi" />
-      <item itemvalue="Python.deep_q_learning_taxi" />
+      <item itemvalue="Python.deep_q_learning_cartpole" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.deep_q_learning_taxi" />
+        <item itemvalue="Python.deep_q_learning_cartpole" />
         <item itemvalue="Python.double_q_learning_taxi" />
         <item itemvalue="Python.q_learning" />
       </list>
@@ -215,22 +213,23 @@
       <updated>1554774310288</updated>
       <workItem from="1554774312526" duration="1412000" />
       <workItem from="1556301588842" duration="14797000" />
-      <workItem from="1556765701281" duration="15745000" />
+      <workItem from="1556765701281" duration="23834000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="31954000" />
+    <option name="totallyTimeSpent" value="40043000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="0" width="1018" height="1152" extended-state="0" />
+    <frame x="0" y="23" width="2048" height="1129" extended-state="0" />
+    <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" weight="0.31938776" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.14755733" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" />
-      <window_info anchor="bottom" id="Run" order="2" weight="0.30868763" />
+      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.32208294" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -239,7 +238,7 @@
       <window_info anchor="bottom" id="Version Control" order="8" weight="0.32902032" />
       <window_info anchor="bottom" id="Database Changes" order="9" />
       <window_info anchor="bottom" id="Event Log" order="10" side_tool="true" />
-      <window_info active="true" anchor="bottom" id="Terminal" order="11" visible="true" weight="0.32809612" />
+      <window_info anchor="bottom" id="Terminal" order="11" weight="0.32786885" />
       <window_info anchor="bottom" id="Python Console" order="12" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
@@ -256,7 +255,7 @@
     <SUITE FILE_PATH="coverage/Gym_Primer$main.coverage" NAME="main Coverage Results" MODIFIED="1554775431875" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/RL_Primers$double_q_learning_taxi.coverage" NAME="double_q_learning_taxi Coverage Results" MODIFIED="1556835368881" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Q-Learning and Double Q-Learning" />
     <SUITE FILE_PATH="coverage/RL_Primer$main.coverage" NAME="td_q_learning Coverage Results" MODIFIED="1556312778919" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/RL_Primers$deep_q_learning_taxi.coverage" NAME="deep_q_learning_taxi Coverage Results" MODIFIED="1556849758658" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Deep Q-Network" />
+    <SUITE FILE_PATH="coverage/RL_Primers$deep_q_learning_taxi.coverage" NAME="deep_q_learning_taxi Coverage Results" MODIFIED="1556939729327" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Deep Q-Network" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/.pytest_cache/README.md" />
@@ -283,10 +282,10 @@
     <entry file="file://$PROJECT_DIR$/Deep Q-Network/average_rewards.png">
       <provider selected="true" editor-type-id="images" />
     </entry>
-    <entry file="file://$PROJECT_DIR$/Deep Q-Network/deep_q_learning_taxi.py">
+    <entry file="file://$PROJECT_DIR$/Deep Q-Network/deep_q_learning_cartpole.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="530">
-          <caret line="63" selection-start-line="63" selection-end-line="63" />
+        <state relative-caret-position="375">
+          <caret line="25" lean-forward="true" selection-start-line="25" selection-end-line="25" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
