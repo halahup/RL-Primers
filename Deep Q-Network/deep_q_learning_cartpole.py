@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.nn.utils import clip_grad_value_
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
@@ -10,8 +11,8 @@ from torch.utils.tensorboard import SummaryWriter
 # hyper-parameters for the Q-learning algorithm
 NUM_EPISODES = 10000     # number of episodes to run
 GAMMA = 0.9              # discount factor
-ALPHA = 0.5              # learning rate
-FRACTION_EXPLORE = 0.50  # fraction of the time to spend on any kind of exploring
+ALPHA = 0.01             # learning rate
+FRACTION_EXPLORE = 0.90  # fraction of the time to spend on any kind of exploring
 
 
 # the Q-table is replaced by a neural network
@@ -20,26 +21,18 @@ class Agent(nn.Module):
         super(Agent, self).__init__()
 
         self.fc_in = nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True)
-        # self.gn = nn.GroupNorm(num_groups=16, num_channels=64)
         self.lrelu = nn.LeakyReLU(negative_slope=0.1)
+        self.fc_mid = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True)
         self.fc_out = nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
 
     def forward(self, x):
         x = self.lrelu(self.fc_in(x))
+        x = self.lrelu(self.fc_mid(x))
         x = self.fc_out(x)
         return x
 
-
-def scalar_to_one_hot(scalar: int, size: int):
-    """
-        Turns a scalar into torch one-hot tensor
-    :param scalar: a scalar to turn into one-hot
-    :param size: dimensionality of the one-hot vector
-    :return: the one-hot torch tensor
-    """
-    one_hot = torch.zeros(size=(1, size), dtype=torch.float)
-    one_hot[0][scalar] = 1
-    return one_hot
+# TODO: Implement the experience replay for the cartpole
+# TODO: Research the Wrappers
 
 
 def main():
@@ -101,22 +94,17 @@ def main():
                 # chose the action that results in the largest action value
                 action = torch.argmax(action_values, dim=1).item()
 
-            # print(action)
-
             # perform the action
             new_state, reward, done, _ = env.step(action=action)
 
             # pass the new state through the agent to get the action values of the next state
             new_state_action_values = agent(torch.Tensor(current_state).unsqueeze(dim=0))
 
-            # define the target for the taken action
             if done:
                 action_value_target = reward
             else:
+                # define the target for the taken action
                 action_value_target = reward + GAMMA * torch.max(new_state_action_values).detach().item()
-
-            # print(action_value_target)
-            # print(action_values_target)
 
             # define the target vector for the agent
             action_values_target[0][action] = action_value_target
@@ -131,6 +119,9 @@ def main():
 
             # backprop
             loss.backward()
+
+            # clip the gradient values
+            clip_grad_value_(parameters=agent.parameters(), clip_value=1)
 
             # update the parameters
             adam.step()
@@ -158,12 +149,16 @@ def main():
 
         writer.add_scalar(tag='Average Reward', scalar_value=avg_reward, global_step=episode)
         writer.add_scalar(tag='Average Steps', scalar_value=avg_steps, global_step=episode)
-        writer.add_scalar(tag='Neural Network Loss', scalar_value=loss.item() * 10e5, global_step=episode)
+        writer.add_scalar(tag='Neural Network Loss', scalar_value=loss.item(), global_step=episode)
         writer.add_histogram(tag='FC_IN Weights', values=agent.fc_in.weight.data.detach().numpy(),
+                             global_step=episode)
+        writer.add_histogram(tag='FC_MID Weights', values=agent.fc_mid.weight.data.detach().numpy(),
                              global_step=episode)
         writer.add_histogram(tag='FC_OUT Weights', values=agent.fc_out.weight.data.detach().numpy(),
                              global_step=episode)
         writer.add_histogram(tag='FC_IN Grads', values=agent.fc_in.weight.grad.numpy(),
+                             global_step=episode)
+        writer.add_histogram(tag='FC_MID Grads', values=agent.fc_mid.weight.grad.numpy(),
                              global_step=episode)
         writer.add_histogram(tag='FC_OUT Grads', values=agent.fc_out.weight.grad.numpy(),
                              global_step=episode)

@@ -3,7 +3,9 @@
     <words>
       <w>backprop</w>
       <w>backuping</w>
+      <w>logits</w>
       <w>lrelu</w>
+      <w>optim</w>
       <w>tensorboard</w>
     </words>
   </dictionary>
