@@ -2,12 +2,8 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7cf9e68b-fa63-4065-b6a0-bc3b60e02825" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/Policy Gradient/policy_gradient_cartpole.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/stepanulyanin.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/stepanulyanin.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Deep Q-Network/average_rewards.png" beforeDir="false" afterPath="$PROJECT_DIR$/Deep Q-Network/average_rewards.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Deep Q-Network/average_steps.png" beforeDir="false" afterPath="$PROJECT_DIR$/Deep Q-Network/average_steps.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_cartpole.py" beforeDir="false" afterPath="$PROJECT_DIR$/Deep Q-Network/deep_q_learning_cartpole.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Policy Gradient/policy_gradient_cartpole.py" beforeDir="false" afterPath="$PROJECT_DIR$/Policy Gradient/policy_gradient_cartpole.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -17,6 +13,18 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/Policy Gradient/policy_gradient_cartpole.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="525">
+              <caret line="87" selection-start-line="87" selection-end-line="87" />
+              <folding>
+                <element signature="e#0#10#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/Q-Learning and Double Q-Learning/double_q_learning_taxi.py">
           <provider selected="true" editor-type-id="text-editor">
@@ -31,18 +39,6 @@
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="270">
               <caret line="18" column="20" selection-start-line="18" selection-start-column="20" selection-end-line="18" selection-end-column="20" />
-              <folding>
-                <element signature="e#0#10#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/Policy Gradient/policy_gradient_cartpole.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="39">
-              <caret line="141" lean-forward="true" selection-start-line="141" selection-end-line="141" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -115,7 +111,7 @@
     <property name="node.js.selected.package.eslint" value="(autodetect)" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="settings.editor.selected.configurable" value="reference.settings.ide.settings.web.browsers" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
@@ -255,23 +251,24 @@
       <workItem from="1554774312526" duration="1412000" />
       <workItem from="1556301588842" duration="14797000" />
       <workItem from="1556765701281" duration="23875000" />
-      <workItem from="1556940339621" duration="17021000" />
+      <workItem from="1556940339621" duration="21026000" />
+      <workItem from="1557382241892" duration="2197000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="57105000" />
+    <option name="totallyTimeSpent" value="63307000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="2048" height="1129" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.14157528" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.14257228" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
-      <window_info anchor="bottom" id="Find" order="1" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.33558342" />
+      <window_info anchor="bottom" id="Find" order="1" weight="0.3297975" />
+      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.33558342" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.39922854" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -297,7 +294,7 @@
     <SUITE FILE_PATH="coverage/Gym_Primer$main.coverage" NAME="main Coverage Results" MODIFIED="1554775431875" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/RL_Primers$double_q_learning_taxi.coverage" NAME="double_q_learning_taxi Coverage Results" MODIFIED="1556835368881" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Q-Learning and Double Q-Learning" />
     <SUITE FILE_PATH="coverage/RL_Primers$deep_q_learning_cartpole.coverage" NAME="deep_q_learning_cartpole Coverage Results" MODIFIED="1556944413029" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Deep Q-Network" />
-    <SUITE FILE_PATH="coverage/RL_Primers$policy_gradient_cartpole.coverage" NAME="policy_gradient_cartpole Coverage Results" MODIFIED="1557374862874" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Policy Gradient" />
+    <SUITE FILE_PATH="coverage/RL_Primers$policy_gradient_cartpole.coverage" NAME="policy_gradient_cartpole Coverage Results" MODIFIED="1557456512415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Policy Gradient" />
     <SUITE FILE_PATH="coverage/RL_Primer$main.coverage" NAME="td_q_learning Coverage Results" MODIFIED="1556312778919" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/RL_Primers$deep_q_learning_taxi.coverage" NAME="deep_q_learning_taxi Coverage Results" MODIFIED="1556939729327" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Deep Q-Network" />
   </component>
@@ -319,6 +316,13 @@
     <entry file="file://$PROJECT_DIR$/Deep Q-Network/average_rewards.png">
       <provider selected="true" editor-type-id="images" />
     </entry>
+    <entry file="file://$PROJECT_DIR$/../anaconda3/envs/rl/lib/python3.6/site-packages/gym/envs/classic_control/cartpole.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="360">
+          <caret line="91" selection-start-line="91" selection-end-line="91" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/Q-Learning and Double Q-Learning/double_q_learning_taxi.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1095">
@@ -336,17 +340,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/../anaconda3/envs/rl/lib/python3.6/site-packages/gym/envs/classic_control/cartpole.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="360">
-          <caret line="91" selection-start-line="91" selection-end-line="91" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/Policy Gradient/policy_gradient_cartpole.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="39">
-          <caret line="141" lean-forward="true" selection-start-line="141" selection-end-line="141" />
+        <state relative-caret-position="525">
+          <caret line="87" selection-start-line="87" selection-end-line="87" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>

@@ -30,7 +30,8 @@ class Agent(nn.Module):
         return x
 
 
-# TODO: Implement the policy gradient
+# TODO: Compare the code to the OpenAI one to make sure everything is consistent
+# TODO: Write extensive comments, describing what happens and why
 
 def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.Tensor):
 
@@ -39,8 +40,7 @@ def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.T
 
     # calculate the log-probabilities of the corresponding chosen action
     # and sum them up across
-    log_probs = torch.sum(masks.float() * log_softmax(logits, dim=0), dim=0)
-
+    log_probs = torch.sum(masks.float() * log_softmax(logits, dim=0), dim=1)
 
     return -1 * torch.mean(weights * log_probs)
 
@@ -62,23 +62,24 @@ def main():
 
     # define total reward and total number of steps for feedback
     total_steps = 0
-    batch_size = 1024
+    batch_size = 5000
 
     for epoch in range(1, NUM_EPOCHS):
 
         # reset the environment to a random initial state
-        current_state = env.reset()
+        state = env.reset()
 
         # initialize the lists for the batch collection
         batch_observations = torch.empty(size=(0, env.observation_space.shape[0]), dtype=torch.float)
         batch_actions = torch.empty(size=(0, ), dtype=torch.long)
-
-        batch_returns = list()
+        batch_weights = torch.empty(size=(0, ), dtype=torch.float)
         batch_logits = torch.empty(size=(0, env.action_space.n))
+        batch_returns = list()
         episode_rewards = list()
 
         finished_rendering_this_epoch = False
 
+        # episode loop
         while True:
 
             # render the environment
@@ -86,10 +87,10 @@ def main():
                 env.render()
 
             # append the observation to the batch of the observations
-            batch_observations = torch.cat((batch_observations, torch.Tensor(current_state).unsqueeze(dim=0)), dim=0)
+            batch_observations = torch.cat((batch_observations, torch.Tensor(state).unsqueeze(dim=0)), dim=0)
 
             # get the action logits from the neural network
-            action_logits = agent(torch.Tensor(current_state).unsqueeze(dim=0))
+            action_logits = agent(torch.Tensor(state).unsqueeze(dim=0))
             batch_logits = torch.cat((batch_logits, action_logits), dim=0)
 
             # sample an action according to the action distribution
@@ -100,9 +101,9 @@ def main():
             batch_actions = torch.cat((batch_actions, action), dim=0)
 
             # perform the action
-            new_state, reward, done, _ = env.step(action=action.item())
+            state, reward, done, _ = env.step(action=action.item())
 
-            # append the reward to the rewards that we collect during the full episode
+            # append the reward to the rewards that we collect during the episode
             episode_rewards.append(reward)
 
             # increment the steps per episode counter
@@ -112,33 +113,28 @@ def main():
             if done:
 
                 # calculate the episode total reward and append it to the batch of returns
-                epoch_return = np.sum(episode_rewards)
-                batch_returns.append(epoch_return)
+                episode_return = np.sum(episode_rewards)
+                batch_returns.append(episode_return)
 
                 # calculate the episode length and append it to the batch of lengths
-                epoch_length = len(episode_rewards)
+                episode_length = len(episode_rewards)
 
                 # the weights are the epoch return multiplied across the epoch length
-                batch_weights = torch.zeros(size=(epoch_length, 1)).fill_(epoch_return)
+                batch_weights = torch.cat((batch_weights, torch.zeros(size=(episode_length, 1)).fill_(episode_return)))
 
                 # reset the episode
-                current_state = env.reset()
+                state = env.reset()
                 done = False
                 episode_rewards = list()
 
                 # won't render again this epoch
-                finished_rendering_this_epoch = True
+                # finished_rendering_this_epoch = True
 
                 # end the loop if we have enough of the observations
                 if batch_observations.shape[0] > batch_size:
                     break
 
-            # update the step
-            current_state = new_state
-
         loss = calculate_loss(actions=batch_actions, weights=batch_weights, logits=batch_logits)
-
-        # raise NotImplementedError
 
         # zero the gradient
         agent.zero_grad()
@@ -153,10 +149,10 @@ def main():
         adam.step()
 
         # append the average steps and average rewards
-        avg_steps = total_steps / batch_size
+        avg_steps = total_steps / epoch
 
         writer.add_scalar(tag='Average Steps', scalar_value=avg_steps, global_step=epoch)
-        writer.add_scalar(tag='Average Reward', scalar_value=epoch_return, global_step=epoch)
+        writer.add_scalar(tag='Episode Return', scalar_value=episode_return, global_step=epoch)
         writer.add_scalar(tag='Neural Network Loss', scalar_value=loss.item(), global_step=epoch)
         writer.add_histogram(tag='FC_IN Weights', values=agent.fc_in.weight.data.detach().numpy(), global_step=epoch)
         writer.add_histogram(tag='FC_OUT Weights', values=agent.fc_out.weight.data.detach().numpy(), global_step=epoch)
@@ -165,8 +161,8 @@ def main():
 
         print("\r", "Epoch: {}, "
                     "Avg Steps Taken per Epoch: {:.3f}, "
-                    "Reward per Epoch: {:.3f}"
-              .format(epoch, avg_steps, epoch_return), end="", flush=True)
+                    "Reward per Episode: {:.3f}"
+              .format(epoch, avg_steps, episode_return), end="", flush=True)
 
     # close the environment
     env.close()
