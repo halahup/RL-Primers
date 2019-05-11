@@ -6,7 +6,6 @@ import torch.optim as optim
 from torch.nn.utils import clip_grad_value_
 from torch.nn.functional import one_hot, log_softmax
 from torch.distributions import Categorical
-import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -60,21 +59,24 @@ def main():
 
     adam = optim.Adam(params=agent.parameters(), lr=ALPHA)
 
-    # define total reward and total number of steps for feedback
-    total_steps = 0
-    batch_size = 5000
+    # define total steps for feedback and batch size for training
+    batch_size = 4000
 
+    # epoch loop
     for epoch in range(1, NUM_EPOCHS):
 
         # reset the environment to a random initial state
         state = env.reset()
 
-        # initialize the lists for the batch collection
-        batch_observations = torch.empty(size=(0, env.observation_space.shape[0]), dtype=torch.float)
-        batch_actions = torch.empty(size=(0, ), dtype=torch.long)
-        batch_weights = torch.empty(size=(0, ), dtype=torch.float)
-        batch_logits = torch.empty(size=(0, env.action_space.n))
-        batch_returns = list()
+        # initialize the structures for the batch collection
+        # We collect the observations and actions we performed over the epoch to form the trajectory.
+        # We also collect the rewards every step in the episode.
+        # We collect the logits for computation of the loss
+        epoch_observations = torch.empty(size=(0, env.observation_space.shape[0]), dtype=torch.float)
+        epoch_actions = torch.empty(size=(0, ), dtype=torch.long)
+        epoch_weights = torch.empty(size=(0, ), dtype=torch.float)
+        epoch_logits = torch.empty(size=(0, env.action_space.n))
+        epoch_returns = list()
         episode_rewards = list()
 
         finished_rendering_this_epoch = False
@@ -82,87 +84,84 @@ def main():
         # episode loop
         while True:
 
-            # render the environment
+            # There are many episodes in a single epoch
+            # During these episodes we accumulate the training data
+            # We train after we collect enough training data
+
+            # render the environment for the first episode in the epoch
             if not finished_rendering_this_epoch:
                 env.render()
 
-            # append the observation to the batch of the observations
-            batch_observations = torch.cat((batch_observations, torch.Tensor(state).unsqueeze(dim=0)), dim=0)
+            # append the observation to the global pool of observations that we are collecting over the epoch
+            epoch_observations = torch.cat((epoch_observations, torch.Tensor(state).unsqueeze(dim=0)), dim=0)
 
             # get the action logits from the neural network
+            # save the logits to the pool for further loss calculation
             action_logits = agent(torch.Tensor(state).unsqueeze(dim=0))
-            batch_logits = torch.cat((batch_logits, action_logits), dim=0)
+            epoch_logits = torch.cat((epoch_logits, action_logits), dim=0)
 
             # sample an action according to the action distribution
-            action_distribution = Categorical(logits=action_logits)
-            action = action_distribution.sample()
+            action = Categorical(logits=action_logits).sample()
 
-            # append the action to the batch of actions
-            batch_actions = torch.cat((batch_actions, action), dim=0)
+            # append the action to the batch of actions for trajectory
+            epoch_actions = torch.cat((epoch_actions, action), dim=0)
 
             # perform the action
             state, reward, done, _ = env.step(action=action.item())
 
-            # append the reward to the rewards that we collect during the episode
+            # append the reward to the rewards pool that we collect during the episode
             episode_rewards.append(reward)
 
-            # increment the steps per episode counter
-            total_steps += 1
-
-            # if the episode is done
+            # if the episode is over
             if done:
 
-                # calculate the episode total reward and append it to the batch of returns
+                # calculate the episode's total reward and append it to the batch of returns
+                # this is the epoch's return - sum of the episodes' rewards
                 episode_return = np.sum(episode_rewards)
-                batch_returns.append(episode_return)
+                epoch_returns.append(episode_return)
 
-                # calculate the episode length and append it to the batch of lengths
+                # calculate the episode's length
                 episode_length = len(episode_rewards)
 
-                # the weights are the epoch return multiplied across the epoch length
-                batch_weights = torch.cat((batch_weights, torch.zeros(size=(episode_length, 1)).fill_(episode_return)))
+                # the weights are the epoch returns multiplied across the epoch length
+                epoch_weights = torch.cat((epoch_weights, torch.zeros(size=(episode_length, 1)).fill_(episode_return)))
 
                 # reset the episode
+                # since there are potentially more episodes left in the epoch to run
                 state = env.reset()
-                done = False
                 episode_rewards = list()
 
                 # won't render again this epoch
-                # finished_rendering_this_epoch = True
+                finished_rendering_this_epoch = True
 
-                # end the loop if we have enough of the observations
-                if batch_observations.shape[0] > batch_size:
+                # if the epoch is over
+                # end the loop if we have enough observations
+                if epoch_observations.shape[0] > batch_size:
                     break
 
-        loss = calculate_loss(actions=batch_actions, weights=batch_weights, logits=batch_logits)
+        # calculate the loss
+        loss = calculate_loss(actions=epoch_actions, weights=epoch_weights, logits=epoch_logits)
 
         # zero the gradient
-        agent.zero_grad()
+        adam.zero_grad()
 
         # backprop
         loss.backward()
 
-        # clip the gradient values
-        clip_grad_value_(parameters=agent.parameters(), clip_value=1)
-
         # update the parameters
         adam.step()
 
-        # append the average steps and average rewards
-        avg_steps = total_steps / epoch
+        # feedback
+        print("\r", "Epoch: {}, "
+                    "Avg Return per Epoch: {:.3f}"
+              .format(epoch, np.mean(epoch_returns)), end="", flush=True)
 
-        writer.add_scalar(tag='Average Steps', scalar_value=avg_steps, global_step=epoch)
         writer.add_scalar(tag='Episode Return', scalar_value=episode_return, global_step=epoch)
-        writer.add_scalar(tag='Neural Network Loss', scalar_value=loss.item(), global_step=epoch)
+        # writer.add_scalar(tag='Neural Network Loss', scalar_value=loss.item(), global_step=epoch)
         writer.add_histogram(tag='FC_IN Weights', values=agent.fc_in.weight.data.detach().numpy(), global_step=epoch)
         writer.add_histogram(tag='FC_OUT Weights', values=agent.fc_out.weight.data.detach().numpy(), global_step=epoch)
         writer.add_histogram(tag='FC_IN Grads', values=agent.fc_in.weight.grad.numpy(), global_step=epoch)
         writer.add_histogram(tag='FC_OUT Grads', values=agent.fc_out.weight.grad.numpy(), global_step=epoch)
-
-        print("\r", "Epoch: {}, "
-                    "Avg Steps Taken per Epoch: {:.3f}, "
-                    "Reward per Episode: {:.3f}"
-              .format(epoch, avg_steps, episode_return), end="", flush=True)
 
     # close the environment
     env.close()
