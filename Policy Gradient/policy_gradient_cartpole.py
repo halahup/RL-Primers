@@ -3,14 +3,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.utils import clip_grad_value_
 from torch.nn.functional import one_hot, log_softmax
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPOCHS = 1000        # number of episodes to run
+NUM_EPOCHS = 10000       # number of episodes to run
 ALPHA = 0.01             # learning rate
 
 
@@ -28,9 +27,9 @@ class Agent(nn.Module):
         x = self.fc_out(x)
         return x
 
-
-# TODO: Compare the code to the OpenAI one to make sure everything is consistent
 # TODO: Write extensive comments, describing what happens and why
+# TODO: Figure out the loss function
+
 
 def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.Tensor):
 
@@ -40,8 +39,9 @@ def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.T
     # calculate the log-probabilities of the corresponding chosen action
     # and sum them up across
     log_probs = torch.sum(masks.float() * log_softmax(logits, dim=0), dim=1)
+    loss = -1 * torch.mean(weights * log_probs)
 
-    return -1 * torch.mean(weights * log_probs)
+    return loss
 
 
 def main():
@@ -55,12 +55,12 @@ def main():
     # Q-table is replaced by the agent driven by a neural network architecture
     agent = Agent(observation_space_size=env.observation_space.shape[0],
                   action_space_size=env.action_space.n,
-                  hidden_size=32)
+                  hidden_size=8)
 
     adam = optim.Adam(params=agent.parameters(), lr=ALPHA)
 
     # define total steps for feedback and batch size for training
-    batch_size = 4000
+    batch_size = 10000
 
     # epoch loop
     for epoch in range(1, NUM_EPOCHS):
@@ -156,6 +156,7 @@ def main():
                     "Avg Return per Epoch: {:.3f}"
               .format(epoch, np.mean(epoch_returns)), end="", flush=True)
 
+        # write to tensorboard
         writer.add_scalar(tag='Episode Return', scalar_value=episode_return, global_step=epoch)
         # writer.add_scalar(tag='Neural Network Loss', scalar_value=loss.item(), global_step=epoch)
         writer.add_histogram(tag='FC_IN Weights', values=agent.fc_in.weight.data.detach().numpy(), global_step=epoch)
