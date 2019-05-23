@@ -9,8 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPOCHS = 1000        # number of episodes to run
-ALPHA = 0.01             # learning rate
+NUM_EPOCHS = 1000         # number of episodes to run
+ALPHA = 0.01              # learning rate
 BATCH_SIZE = 100
 
 
