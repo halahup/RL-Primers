@@ -3,15 +3,16 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.nn.init import kaiming_normal_
 from torch.nn.functional import one_hot, log_softmax
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPOCHS = 1000         # number of episodes to run
+NUM_EPOCHS = 200          # number of episodes to run
 ALPHA = 0.01              # learning rate
-BATCH_SIZE = 100
+BATCH_SIZE = 300
 
 
 # the Q-table is replaced by a neural network
@@ -21,15 +22,24 @@ class Agent(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.PReLU(num_parameters=hidden_size),
+            nn.LeakyReLU(),
             nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
         )
+
+        self.net.apply(self.init_layer)
+
+    @staticmethod
+    def init_layer(layer):
+        if type(layer) is nn.Linear:
+            print(f'Initializing layer: {layer}')
+            kaiming_normal_(layer.weight)
 
     def forward(self, x):
         x = self.net(x)
         return x
 
 # TODO: Write extensive comments, describing what happens and why
+# TODO: Add the reward-to-go weights instead of the total episode reward weights
 # TODO: Add the baseline for the performance
 # TODO: Figure out the loss function
 
@@ -37,10 +47,10 @@ class Agent(nn.Module):
 def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.Tensor):
 
     # create the one hot mask
-    masks = one_hot(actions, num_classes=2)
+    masks = one_hot(actions, num_classes=4)
 
     # calculate the log-probabilities of the corresponding chosen action
-    # and sum them up across
+    # and sum them up across the first dimension to for a vector
     log_probs = torch.sum(masks.float() * log_softmax(logits, dim=1), dim=1)
     loss = -1 * torch.mean(weights.squeeze() * log_probs)
 
@@ -53,7 +63,7 @@ def main():
     writer = SummaryWriter()
 
     # create the environment
-    env = gym.make('CartPole-v1')
+    env = gym.make('LunarLander-v2')
 
     # Q-table is replaced by the agent driven by a neural network architecture
     agent = Agent(observation_space_size=env.observation_space.shape[0],
@@ -162,6 +172,7 @@ def main():
               .format(epoch, np.mean(epoch_returns)), end="", flush=True)
 
         # write to tensorboard
+        writer.add_scalar(tag='Average Epoch Return', scalar_value=np.mean(epoch_returns), global_step=epoch)
         writer.add_scalar(tag='Episode Return', scalar_value=episode_return, global_step=epoch)
         writer.add_scalar(tag='Neural Network Loss', scalar_value=loss.item(), global_step=epoch)
 
