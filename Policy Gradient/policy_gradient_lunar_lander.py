@@ -14,7 +14,7 @@ NUM_EPOCHS = 400          # number of episodes to run
 ALPHA = 0.005             # learning rate
 BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
-HIDDEN_SIZE = 512         # number of hidden nodes we have in our approximation
+HIDDEN_SIZE = 256         # number of hidden nodes we have in our approximation
 
 
 # the Q-table is replaced by a neural network
