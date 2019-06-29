@@ -177,11 +177,6 @@ def main():
 
         epoch += 1
 
-        # check if solved
-        if np.mean(total_rewards) > 200:
-            print('\nSolved!')
-            break
-
         # calculate the loss
         loss = calculate_loss(actions=epoch_actions, weights=epoch_weights, logits=epoch_logits)
 
@@ -206,6 +201,11 @@ def main():
         writer.add_scalar(tag='Average Return over 100 episodes',
                           scalar_value=np.mean(total_rewards),
                           global_step=epoch)
+
+        # check if solved
+        if np.mean(total_rewards) > 200:
+            print('\nSolved!')
+            break
 
     # close the environment
     env.close()
