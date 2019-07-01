@@ -7,12 +7,13 @@ from torch.nn.functional import one_hot, log_softmax
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from collections import deque
+import matplotlib.pyplot as plt
 
 
 # hyper-parameters for the Q-learning algorithm
 NUM_EPOCHS = 400          # number of episodes to run
-ALPHA = 0.005             # learning rate
-BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
+ALPHA = 0.01              # learning rate
+BATCH_SIZE = 20           # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 256         # number of hidden nodes we have in our approximation
 
@@ -206,6 +207,45 @@ def main():
         if np.mean(total_rewards) > 200:
             print('\nSolved!')
             break
+
+    total_episode_rewards = list()
+
+    # run an extra 100 episode with the agent to check out the performance
+    for _ in range(100):
+
+        # reset the environment to a random initial state every epoch
+        state = env.reset()
+
+        # empty list for the episode rewards
+        episode_rewards = list()
+
+        # episode loop
+        while True:
+
+            # get action logits from the agent based on the state
+            action_logits = agent(torch.Tensor(state).unsqueeze(dim=0))
+
+            # sample an action according to the action distribution
+            action = Categorical(logits=action_logits).sample()
+
+            # perform the action
+            state, reward, done, _ = env.step(action=action.item())
+
+            episode_rewards.append(reward)
+
+            # if the episode is over
+            if done:
+                # calculate the total episode rewards
+                total_episode_rewards.append(np.sum(episode_rewards))
+                break
+
+    plt.rcParams['figure.figsize'] = (20, 10)
+    plt.plot(total_episode_rewards)
+    plt.title('Rewards over 100 episodes of the trained agent')
+    plt.ylabel('Rewards')
+    plt.xlabel('Episodes')
+    plt.grid(linestyle='--')
+    plt.savefig('./figures/100_trained.png')
 
     # close the environment
     env.close()
