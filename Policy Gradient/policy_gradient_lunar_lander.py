@@ -34,6 +34,8 @@ class Agent(nn.Module):
 # TODO: Write extensive comments, describing what happens and why
 # TODO: Add the entropy penalty to improve the exploration
 # TODO: Figure out the loss function
+# TODO: Look into the approximation of the baseline with a NN (Sutton and Barto)
+# TODO: Check out the idea of planning upfront during the policy execution
 
 
 def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.Tensor):
