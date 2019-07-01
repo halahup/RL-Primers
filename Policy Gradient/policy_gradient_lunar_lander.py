@@ -31,6 +31,7 @@ class Agent(nn.Module):
         x = self.net(x)
         return x
 
+# TODO: Fit this model to another environment
 # TODO: Write extensive comments, describing what happens and why
 # TODO: Add the entropy penalty to improve the exploration
 # TODO: Figure out the loss function
