@@ -10,10 +10,9 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 
-# hyper-parameters for the Q-learning algorithm
 NUM_EPOCHS = 400          # number of episodes to run
-ALPHA = 0.01              # learning rate
-BATCH_SIZE = 20           # how many episodes we want to pack into an epoch
+ALPHA = 0.005              # learning rate
+BATCH_SIZE = 50          # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 256         # number of hidden nodes we have in our approximation
 
@@ -144,7 +143,7 @@ def main():
                 # here we turn the rewards we accumulated during the episode into the rewards-to-go:
                 # earlier actions are responsible for more than the later taken actions
                 discounted_rewards_to_go = get_discounted_rewards(rewards=episode_rewards)
-                discounted_rewards_to_go -= np.mean(discounted_rewards_to_go)
+                discounted_rewards_to_go -= np.mean(discounted_rewards_to_go)  # baseline
                 total_rewards.append(np.sum(episode_rewards))
 
                 # write the total episode reward to TB
