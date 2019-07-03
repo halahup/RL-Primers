@@ -3,15 +3,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.functional import one_hot, log_softmax
+from torch.nn.functional import one_hot, log_softmax, softmax
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
+from collections import deque
+import matplotlib.pyplot as plt
 
 
-# hyper-parameters for the Q-learning algorithm
-NUM_EPOCHS = 1000         # number of episodes to run
-ALPHA = 0.01              # learning rate
-BATCH_SIZE = 100
+ALPHA = 0.001             # learning rate
+BATCH_SIZE = 10           # how many episodes we want to pack into an epoch
+GAMMA = 0.99              # discount rate
+HIDDEN_SIZE = 256         # number of hidden nodes we have in our approximation
+BETA = 0.02
 
 
 # the Q-table is replaced by a neural network
@@ -21,17 +24,13 @@ class Agent(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.PReLU(num_parameters=hidden_size),
+            nn.LeakyReLU(),
             nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
         )
 
     def forward(self, x):
         x = self.net(x)
         return x
-
-# TODO: Write extensive comments, describing what happens and why
-# TODO: Add the baseline for the performance
-# TODO: Figure out the loss function
 
 
 def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.Tensor):
@@ -40,17 +39,33 @@ def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.T
     masks = one_hot(actions, num_classes=2)
 
     # calculate the log-probabilities of the corresponding chosen action
-    # and sum them up across
+    # and sum them up across the first dimension to for a vector
     log_probs = torch.sum(masks.float() * log_softmax(logits, dim=1), dim=1)
-    loss = -1 * torch.mean(weights.squeeze() * log_probs)
+    loss = -1 * torch.mean(log_probs * weights.squeeze())
 
-    return loss
+    # add the entropy penalty
+    p = softmax(logits, dim=1)
+    log_p = log_softmax(logits, dim=1)
+    entropy = -1 * torch.mean(torch.sum(p * log_p, dim=1), dim=0)
+    entropy_loss = BETA * entropy
+
+    return loss, entropy_loss, entropy
+
+
+def get_discounted_rewards(rewards):
+    discounted_rewards = np.empty_like(rewards, dtype=np.float)
+    for i in range(rewards.shape[0]):
+        gammas = np.full(shape=(rewards[i:].shape[0]), fill_value=GAMMA)
+        discounted_gammas = np.power(gammas, np.arange(rewards[i:].shape[0]))
+        discounted_reward = np.sum(rewards[i:] * discounted_gammas)
+        discounted_rewards[i] = discounted_reward
+    return discounted_rewards
 
 
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter()
+    writer = SummaryWriter(comment=f'_Gamma={GAMMA},LR={ALPHA},BS={BATCH_SIZE},NH={HIDDEN_SIZE}')
 
     # create the environment
     env = gym.make('CartPole-v1')
@@ -58,12 +73,16 @@ def main():
     # Q-table is replaced by the agent driven by a neural network architecture
     agent = Agent(observation_space_size=env.observation_space.shape[0],
                   action_space_size=env.action_space.n,
-                  hidden_size=128)
+                  hidden_size=HIDDEN_SIZE)
 
     adam = optim.Adam(params=agent.parameters(), lr=ALPHA)
 
+    total_rewards = deque([], maxlen=100)
+    epoch = 1
+    episode_total = 1
+
     # epoch loop
-    for epoch in range(1, NUM_EPOCHS):
+    while True:
 
         # reset the environment to a random initial state every epoch
         state = env.reset()
@@ -76,8 +95,8 @@ def main():
         epoch_actions = torch.empty(size=(0, ), dtype=torch.long)
         epoch_weights = torch.empty(size=(0, ), dtype=torch.float)
         epoch_logits = torch.empty(size=(0, env.action_space.n))
-        epoch_returns = list()
-        episode_rewards = list()
+        epoch_returns = np.empty(shape=(0, ))
+        episode_rewards = np.empty(shape=(0, ))
 
         finished_rendering_this_epoch = False
 
@@ -112,29 +131,43 @@ def main():
             state, reward, done, _ = env.step(action=action.item())
 
             # append the reward to the rewards pool that we collect during the episode
-            episode_rewards.append(reward)
+            episode_rewards = np.concatenate((episode_rewards, np.array([reward])))
 
             # if the episode is over
             if done:
 
                 # increment the episode
+                episode_total += 1
                 episode += 1
 
                 # calculate the episode's total reward and append it to the batch of returns
                 # this is the epoch's return - sum of the episodes' rewards
-                episode_return = np.sum(episode_rewards)
-                epoch_returns.append(episode_return)
+                # here we turn the rewards we accumulated during the episode into the rewards-to-go:
+                # earlier actions are responsible for more than the later taken actions
+                discounted_rewards_to_go = get_discounted_rewards(rewards=episode_rewards)
+                discounted_rewards_to_go -= np.mean(episode_rewards)  # baseline
+                total_rewards.append(np.sum(episode_rewards))
+
+                # write the total episode reward to TB
+                writer.add_scalar(tag='Total Episode Reward',
+                                  scalar_value=np.sum(episode_rewards),
+                                  global_step=episode_total)
+
+                epoch_returns = np.concatenate((epoch_returns, np.array([np.sum(episode_rewards)])))
 
                 # calculate the episode's length
-                episode_length = len(episode_rewards)
+                episode_length = episode_rewards.shape[0]
 
-                # the weights are the epoch returns multiplied across the epoch length
-                epoch_weights = torch.cat((epoch_weights, torch.zeros(size=(episode_length, 1)).fill_(episode_return)))
+                # the weights are the rewards-to-go per episode
+                # accumulate the weights across the epoch
+                epoch_weights = torch.cat((epoch_weights,
+                                           torch.ones(size=(episode_length, )) *
+                                           torch.tensor(discounted_rewards_to_go.copy()).float()))
 
                 # reset the episode
                 # since there are potentially more episodes left in the epoch to run
                 state = env.reset()
-                episode_rewards = list()
+                episode_rewards = np.empty(shape=(0, ))
 
                 # won't render again this epoch
                 finished_rendering_this_epoch = True
@@ -144,14 +177,20 @@ def main():
                 if episode >= BATCH_SIZE:
                     break
 
+        epoch += 1
+
         # calculate the loss
-        loss = calculate_loss(actions=epoch_actions, weights=epoch_weights, logits=epoch_logits)
+        loss, entropy_loss, entropy = calculate_loss(actions=epoch_actions, weights=epoch_weights, logits=epoch_logits)
+
+        # if the agent is extremely confident in his action -> we want to penalize him to encourage exploration
+        # if the agent is not confident the total loss is lower as the entropy loss is higher
+        total_loss = loss - entropy_loss
 
         # zero the gradient
         adam.zero_grad()
 
         # backprop
-        loss.backward()
+        total_loss.backward()
 
         # update the parameters
         adam.step()
@@ -162,8 +201,57 @@ def main():
               .format(epoch, np.mean(epoch_returns)), end="", flush=True)
 
         # write to tensorboard
-        writer.add_scalar(tag='Episode Return', scalar_value=episode_return, global_step=epoch)
-        writer.add_scalar(tag='Neural Network Loss', scalar_value=loss.item(), global_step=epoch)
+        writer.add_scalar(tag='Average Epoch Return',
+                          scalar_value=np.mean(epoch_returns),
+                          global_step=epoch)
+        writer.add_scalar(tag='Average Return over 100 episodes',
+                          scalar_value=np.mean(total_rewards),
+                          global_step=epoch)
+        writer.add_scalar(tag='Entropy', scalar_value=entropy.item(), global_step=epoch)
+
+        # check if solved
+        if np.mean(total_rewards) > 200:
+            print('\nSolved!')
+            break
+
+    total_episode_rewards = list()
+
+    # run an extra 100 episode with the agent to check out the performance
+    for _ in range(100):
+
+        # reset the environment to a random initial state every epoch
+        state = env.reset()
+
+        # empty list for the episode rewards
+        episode_rewards = list()
+
+        # episode loop
+        while True:
+
+            # get action logits from the agent based on the state
+            action_logits = agent(torch.Tensor(state).unsqueeze(dim=0))
+
+            # sample an action according to the action distribution
+            action = Categorical(logits=action_logits).sample()
+
+            # perform the action
+            state, reward, done, _ = env.step(action=action.item())
+
+            episode_rewards.append(reward)
+
+            # if the episode is over
+            if done:
+                # calculate the total episode rewards
+                total_episode_rewards.append(np.sum(episode_rewards))
+                break
+
+    plt.rcParams['figure.figsize'] = (20, 10)
+    plt.plot(total_episode_rewards)
+    plt.title('Rewards over 100 episodes of the trained agent')
+    plt.ylabel('Rewards')
+    plt.xlabel('Episodes')
+    plt.grid(linestyle='--')
+    plt.savefig('./figures/100_trained.png')
 
     # close the environment
     env.close()

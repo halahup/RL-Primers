@@ -3,17 +3,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.functional import one_hot, log_softmax
+from torch.nn.functional import one_hot, log_softmax, softmax
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from collections import deque
 import matplotlib.pyplot as plt
 
 
-ALPHA = 0.01              # learning rate
-BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
+ALPHA = 0.001             # learning rate
+BATCH_SIZE = 10           # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 256         # number of hidden nodes we have in our approximation
+BETA = 0.02
 
 
 # the Q-table is replaced by a neural network
@@ -33,9 +34,9 @@ class Agent(nn.Module):
 
 # TODO: Fit this model to another environment
 # TODO: Write extensive comments, describing what happens and why
-# TODO: Add the entropy penalty to improve the exploration
-# TODO: Figure out the loss function
-# TODO: Look into the approximation of the baseline with a NN (Sutton and Barto)
+# TODO: Add the entropy bonus to improve the exploration: -> Done
+# TODO: Figure out the loss function -> Done
+# TODO: Look into the approximation of the baseline with a NN (Sutton and Barto) - Actor-Critic (A2C)
 # TODO: Check out the idea of planning upfront during the policy execution
 
 
@@ -47,9 +48,15 @@ def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.T
     # calculate the log-probabilities of the corresponding chosen action
     # and sum them up across the first dimension to for a vector
     log_probs = torch.sum(masks.float() * log_softmax(logits, dim=1), dim=1)
-    loss = -1 * torch.mean(weights.squeeze() * log_probs)
+    loss = -1 * torch.mean(log_probs * weights.squeeze())
 
-    return loss
+    # add the entropy penalty
+    p = softmax(logits, dim=1)
+    log_p = log_softmax(logits, dim=1)
+    entropy = -1 * torch.mean(torch.sum(p * log_p, dim=1), dim=0)
+    entropy_loss = BETA * entropy
+
+    return loss, entropy_loss, entropy
 
 
 def get_discounted_rewards(rewards):
@@ -145,7 +152,7 @@ def main():
                 # here we turn the rewards we accumulated during the episode into the rewards-to-go:
                 # earlier actions are responsible for more than the later taken actions
                 discounted_rewards_to_go = get_discounted_rewards(rewards=episode_rewards)
-                discounted_rewards_to_go -= np.mean(discounted_rewards_to_go)  # baseline
+                discounted_rewards_to_go -= np.mean(episode_rewards)  # baseline
                 total_rewards.append(np.sum(episode_rewards))
 
                 # write the total episode reward to TB
@@ -180,13 +187,17 @@ def main():
         epoch += 1
 
         # calculate the loss
-        loss = calculate_loss(actions=epoch_actions, weights=epoch_weights, logits=epoch_logits)
+        loss, entropy_loss, entropy = calculate_loss(actions=epoch_actions, weights=epoch_weights, logits=epoch_logits)
+
+        # if the agent is extremely confident in his action -> we want to penalize him to encourage exploration
+        # if the agent is not confident the total loss is lower as the entropy loss is higher
+        total_loss = loss - entropy_loss
 
         # zero the gradient
         adam.zero_grad()
 
         # backprop
-        loss.backward()
+        total_loss.backward()
 
         # update the parameters
         adam.step()
@@ -203,6 +214,7 @@ def main():
         writer.add_scalar(tag='Average Return over 100 episodes',
                           scalar_value=np.mean(total_rewards),
                           global_step=epoch)
+        writer.add_scalar(tag='Entropy', scalar_value=entropy.item(), global_step=epoch)
 
         # check if solved
         if np.mean(total_rewards) > 200:
