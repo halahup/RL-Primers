@@ -10,8 +10,8 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 
-ALPHA = 0.001             # learning rate
-BATCH_SIZE = 10           # how many episodes we want to pack into an epoch
+ALPHA = 0.005             # learning rate
+BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 256         # number of hidden nodes we have in our approximation
 BETA = 0.02

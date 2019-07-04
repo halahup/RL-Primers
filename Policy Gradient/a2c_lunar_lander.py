@@ -1,7 +1,14 @@
+# TODO: implement the A2C and A3C models for the lunar lander
+# TODO: add gradient clipping
+# TODO: investigate why scale of the advantage is so large
+# TODO: implement writing the gradients and weights to TB
+# TODO: try separating the actor and the critic
+
 import gym
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.functional import one_hot, log_softmax, softmax
 from torch.distributions import Categorical
@@ -10,10 +17,10 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 
-ALPHA = 0.005             # learning rate
-BATCH_SIZE = 10           # how many episodes we want to pack into an epoch
+ALPHA = 0.001             # learning rate
+BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
-HIDDEN_SIZE = 64          # number of hidden nodes we have in our approximation
+HIDDEN_SIZE = 256         # number of hidden nodes we have in our approximation
 BETA = 0.02
 
 
@@ -22,24 +29,25 @@ class Agent(nn.Module):
     def __init__(self, observation_space_size: int, action_space_size: int, hidden_size: int):
         super(Agent, self).__init__()
 
-        self.net = nn.Sequential(
+        self.feature_extractor = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
             nn.LeakyReLU(),
-            nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
-            nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
+            nn.Linear(in_features=hidden_size, out_features=128, bias=True)
+        )
+
+        self.policy = nn.Sequential(
+            nn.Linear(in_features=128, out_features=action_space_size)
+        )
+
+        self.value_approximator = nn.Sequential(
+            nn.Linear(in_features=128, out_features=1)
         )
 
     def forward(self, x):
-        x = self.net(x)
-        return x
-
-# TODO: Fit this model to another environment
-# TODO: Write extensive comments, describing what happens and why
-# TODO: Add the entropy bonus to improve the exploration: -> Done
-# TODO: Figure out the loss function -> Done
-# TODO: Look into the approximation of the baseline with a NN (Sutton and Barto) - Actor-Critic (A2C)
-# TODO: Check out the idea of planning upfront during the policy execution
+        x = self.feature_extractor(x)
+        policy_approximation = self.policy(x)
+        state_value_approximation = self.value_approximator(x)
+        return policy_approximation, state_value_approximation
 
 
 def calculate_loss(actions: torch.Tensor, weights: torch.Tensor, logits: torch.Tensor):
@@ -86,6 +94,8 @@ def main():
 
     adam = optim.Adam(params=agent.parameters(), lr=ALPHA)
 
+    criterion = nn.MSELoss(reduction='mean')
+
     total_rewards = deque([], maxlen=100)
     epoch = 1
     episode_total = 1
@@ -109,6 +119,8 @@ def main():
 
         finished_rendering_this_epoch = False
 
+        epoch_values = torch.empty(size=(0, 1), dtype=torch.float)
+
         episode = 0
 
         # episode loop
@@ -127,8 +139,9 @@ def main():
 
             # get the action logits from the neural network
             # save the logits to the pool for further loss calculation
-            action_logits = agent(torch.Tensor(state).unsqueeze(dim=0))
+            action_logits, state_value_approximation = agent(torch.Tensor(state).unsqueeze(dim=0))
             epoch_logits = torch.cat((epoch_logits, action_logits), dim=0)
+            epoch_values = torch.cat((epoch_values, state_value_approximation), dim=0)
 
             # sample an action according to the action distribution
             action = Categorical(logits=action_logits).sample()
@@ -154,7 +167,11 @@ def main():
                 # here we turn the rewards we accumulated during the episode into the rewards-to-go:
                 # earlier actions are responsible for more than the later taken actions
                 discounted_rewards_to_go = get_discounted_rewards(rewards=episode_rewards)
-                discounted_rewards_to_go -= np.mean(episode_rewards)  # baseline
+                discounted_rewards_to_go = torch.tensor(discounted_rewards_to_go, dtype=torch.float)
+
+                # baseline -> Advantage function -> Q = V + A, so Q - V = A
+                advantage = discounted_rewards_to_go - epoch_values.squeeze()
+
                 total_rewards.append(np.sum(episode_rewards))
 
                 # write the total episode reward to TB
@@ -171,12 +188,14 @@ def main():
                 # accumulate the weights across the epoch
                 epoch_weights = torch.cat((epoch_weights,
                                            torch.ones(size=(episode_length, )) *
-                                           torch.tensor(discounted_rewards_to_go.copy()).float()))
+                                           advantage.clone().detach()), dim=0)
 
                 # reset the episode
                 # since there are potentially more episodes left in the epoch to run
                 state = env.reset()
                 episode_rewards = np.empty(shape=(0, ))
+                epoch_state_value_approximation = epoch_values.detach().squeeze()
+                epoch_values = torch.empty(size=(0, 1), dtype=torch.float)
 
                 # won't render again this epoch
                 finished_rendering_this_epoch = True
@@ -189,11 +208,15 @@ def main():
         epoch += 1
 
         # calculate the loss
-        loss, entropy_loss, entropy = calculate_loss(actions=epoch_actions, weights=epoch_weights, logits=epoch_logits)
+        policy_loss, entropy_loss, entropy = calculate_loss(actions=epoch_actions,
+                                                            weights=epoch_weights,
+                                                            logits=epoch_logits)
+
+        value_loss = F.mse_loss(epoch_state_value_approximation, discounted_rewards_to_go)
 
         # if the agent is extremely confident in his action -> we want to penalize him to encourage exploration
         # if the agent is not confident the total loss is lower as the entropy loss is higher
-        total_loss = loss - entropy_loss
+        total_loss = policy_loss - entropy_loss + value_loss
 
         # zero the gradient
         adam.zero_grad()
@@ -217,6 +240,7 @@ def main():
                           scalar_value=np.mean(total_rewards),
                           global_step=epoch)
         writer.add_scalar(tag='Entropy', scalar_value=entropy.item(), global_step=epoch)
+        writer.add_scalar(tag='Advantage', scalar_value=advantage.mean().item(), global_step=epoch)
 
         # check if solved
         if np.mean(total_rewards) > 200:
