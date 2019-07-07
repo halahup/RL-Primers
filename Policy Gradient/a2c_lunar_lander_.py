@@ -1,12 +1,12 @@
-# TODO: implement the A2C and A3C models for the lunar lander
-# TODO: add gradient clipping                                   <- DONE
-# TODO: investigate why scale of the advantage is so large      <- DONE
-# TODO: implement writing the gradients and weights to TB       <- DONE
-# TODO: try separating the actor and the critic
-# TODO: double check all the computational graphs
+# TODO: Implement the A2C and A3C models for the lunar lander
+# TODO: Figure out the discounted rewards for A2C
+# TODO: Double check all the computational graphs
 # TODO: Try normalizing state data
+# TODO: Checkout the idea of the not full episodes
+# TODO: Investigate how parallel environments result in de-correlated samples
 
 
+from model import Actor, Critic
 import gym
 import numpy as np
 import torch
@@ -29,43 +29,6 @@ HIDDEN_SIZE_ACTOR = 64    # number of hidden nodes we have in the actor network
 HIDDEN_SIZE_CRITIC = 64   # number of hidden nodes we have in the critic network
 BETA = 0.02               # multiplier for the entropy bonus
 STEPS = 4                 # number of steps we want to calculate the discounted rewards forward for
-
-
-# the Q-table is replaced by a neural network
-class Agent(nn.Module):
-    def __init__(self, observation_space_size: int, action_space_size: int, hidden_size: int):
-        super(Agent, self).__init__()
-
-        self.fc_1 = nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True)
-        self.fc_2 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True)
-        self.fc_3 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True)
-        self.fc_4 = nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.relu(self.fc_1(x))
-        x = self.relu(self.fc_2(x))
-        x = self.relu(self.fc_3(x))
-        logits = self.fc_4(x)
-        return logits
-
-
-class Critic(nn.Module):
-    def __init__(self, observation_space_size: int, hidden_size: int):
-        super(Critic, self).__init__()
-
-        self.fc_1 = nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True)
-        self.fc_2 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True)
-        self.fc_3 = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True)
-        self.fc_4 = nn.Linear(in_features=hidden_size, out_features=1, bias=True)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.relu(self.fc_1(x))
-        x = self.relu(self.fc_2(x))
-        x = self.relu(self.fc_3(x))
-        logit = self.fc_4(x)
-        return logit
 
 
 def normalize(array: np.array) -> np.array:
@@ -153,7 +116,7 @@ def main():
     # env = gym.make('CartPole-v1')
 
     # actor approximates the policy -> number of actions logits are the output
-    actor = Agent(observation_space_size=env.observation_space.shape[0],
+    actor = Actor(observation_space_size=env.observation_space.shape[0],
                   action_space_size=env.action_space.n,
                   hidden_size=HIDDEN_SIZE_ACTOR)
 
