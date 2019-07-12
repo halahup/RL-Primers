@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+from torch.utils.tensorboard import SummaryWriter
 
 
 # hyper-parameters for the Q-learning algorithm
@@ -9,6 +10,8 @@ ALPHA = 0.5             # learning rate
 
 
 def main():
+
+    tb_writer = SummaryWriter()
 
     # create the environment
     env = gym.make('Taxi-v2')
@@ -87,8 +90,17 @@ def main():
               .format(epsilon, episode, total_steps / float(episode), total_reward / float(episode)),
               end="", flush=True)
 
+        tb_writer.add_scalar(tag='Average Reward per Episode',
+                             scalar_value=total_reward / float(episode),
+                             global_step=episode)
+
+        tb_writer.add_scalar(tag='Average Steps Taken Per Episode',
+                             scalar_value=total_steps / float(episode),
+                             global_step=episode)
+
     # close the environment
     env.close()
+    tb_writer.close()
 
 
 if __name__ == "__main__":
