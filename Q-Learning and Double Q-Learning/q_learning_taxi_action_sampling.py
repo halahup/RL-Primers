@@ -45,17 +45,21 @@ def main():
 
         while not done:
 
-            # explore with probability epsilon
-            if np.random.uniform(low=0, high=1, size=1) < epsilon:
-                action = env.action_space.sample()
-
-            # act greedily with probability (1 - epsilon)
-            else:
-
-                # Take the action that yields the largest Q-value for the state-action pair:
-                # the q_table[current_state] has 6 entries, one for every action possible in the current state
-                # we want to grab the action that has the largest q-value
-                action = np.argmax(q_table[current_state], axis=0)
+            # # explore with probability epsilon
+            # if np.random.uniform(low=0, high=1, size=1) < epsilon:
+            #
+            #     action = env.action_space.sample()
+            #
+            # # act greedily with probability (1 - epsilon)
+            # else:
+            #
+            #     # Take the action that yields the largest Q-value for the state-action pair:
+            #     # the q_table[current_state] has 6 entries, one for every action possible in the current state
+            #     # we want to grab the action that has the largest q-value
+            #     action = np.argmax(q_table[current_state], axis=0)
+            preferences = q_table[current_state]
+            probs = softmax(preferences)
+            action = np.random.choice(a=np.arange(preferences.shape[0]), p=probs)
 
             # perform the action
             new_state, reward, done, _ = env.step(action=action)
