@@ -2,9 +2,11 @@ import gym
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from scipy.special import softmax
+from scipy.stats import entropy
+
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPISODES = 1000000  # number of episodes to run
+NUM_EPISODES = 100000  # number of episodes to run
 GAMMA = 0.9             # discount factor
 ALPHA = 0.5             # learning rate
 
@@ -28,10 +30,6 @@ def main():
     total_reward = 0
     total_steps = 0
 
-    # define the epsilon for the exploration-exploitation balance
-    # we start out with the fully exploratory behavior
-    epsilon = 1.0
-
     for episode in range(1, NUM_EPISODES):
 
         # reset the environment to a random initial state
@@ -43,22 +41,14 @@ def main():
         # define the counter for the number of steps per episode
         steps = 1
 
+        episode_entropy = list()
+
         while not done:
 
-            # # explore with probability epsilon
-            # if np.random.uniform(low=0, high=1, size=1) < epsilon:
-            #
-            #     action = env.action_space.sample()
-            #
-            # # act greedily with probability (1 - epsilon)
-            # else:
-            #
-            #     # Take the action that yields the largest Q-value for the state-action pair:
-            #     # the q_table[current_state] has 6 entries, one for every action possible in the current state
-            #     # we want to grab the action that has the largest q-value
-            #     action = np.argmax(q_table[current_state], axis=0)
             preferences = q_table[current_state]
             probs = softmax(preferences)
+            episode_entropy.append(entropy(probs))
+
             action = np.random.choice(a=np.arange(preferences.shape[0]), p=probs)
 
             # perform the action
@@ -72,7 +62,10 @@ def main():
             # reward for the new state and discounted maximum action value for the new state.
             # This is called bootstrapping - we use the next state's maximum action value to define the current
             # state's action value.
-            q_table[current_state, action] = (1 - ALPHA) * q_table[current_state, action] +\
+            # q_table[current_state, action] = (1 - ALPHA) * q_table[current_state, action] +\
+            #     ALPHA * (reward + GAMMA * np.max(q_table[new_state]))
+
+            q_table[current_state, action] = (1 - ALPHA) * q_table[current_state, action] + \
                 ALPHA * (reward + GAMMA * np.max(q_table[new_state]))
 
             # increment the total reward
@@ -85,12 +78,8 @@ def main():
             steps += 1
             total_steps += 1
 
-        # decay the exploration factor
-        if epsilon > 0.01:
-            epsilon -= 1 / (0.01 * NUM_EPISODES)
-
-        print("\r", "Epsilon: {:.3f}, Episode: {}, Avg Steps Taken per Episode: {:.3f}, Avg Reward per Episode: {:.3f}"
-              .format(epsilon, episode, total_steps / float(episode), total_reward / float(episode)),
+        print("\r", "Episode: {}, Avg Steps Taken per Episode: {:.3f}, Avg Reward per Episode: {:.3f}"
+              .format(episode, total_steps / float(episode), total_reward / float(episode)),
               end="", flush=True)
 
         tb_writer.add_scalar(tag='Average Reward per Episode',
@@ -99,6 +88,10 @@ def main():
 
         tb_writer.add_scalar(tag='Average Steps Taken Per Episode',
                              scalar_value=total_steps / float(episode),
+                             global_step=episode)
+
+        tb_writer.add_scalar(tag='Average Entropy per Episode',
+                             scalar_value=np.mean(episode_entropy),
                              global_step=episode)
 
     # close the environment

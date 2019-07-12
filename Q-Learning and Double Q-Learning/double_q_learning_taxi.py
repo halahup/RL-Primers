@@ -4,7 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPISODES = 1000000   # number of episodes to run
+NUM_EPISODES = 100000   # number of episodes to run
 GAMMA = 0.9              # discount factor
 ALPHA = 0.5              # learning rate
 

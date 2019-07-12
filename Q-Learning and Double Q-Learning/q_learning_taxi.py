@@ -4,7 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 from scipy.special import softmax
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPISODES = 1000000  # number of episodes to run
+NUM_EPISODES = 100000  # number of episodes to run
 GAMMA = 0.9             # discount factor
 ALPHA = 0.5             # learning rate
 
@@ -14,7 +14,7 @@ def main():
     tb_writer = SummaryWriter()
 
     # create the environment
-    env = gym.make('Taxi-v2')
+    env = gym.make('FrozenLake-v0')
 
     # initialize the q_learning table
     # In simple temporal difference methods the action value function can be represented by a table;
