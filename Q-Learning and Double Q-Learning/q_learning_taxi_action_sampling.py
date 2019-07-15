@@ -62,9 +62,6 @@ def main():
             # reward for the new state and discounted maximum action value for the new state.
             # This is called bootstrapping - we use the next state's maximum action value to define the current
             # state's action value.
-            # q_table[current_state, action] = (1 - ALPHA) * q_table[current_state, action] +\
-            #     ALPHA * (reward + GAMMA * np.max(q_table[new_state]))
-
             q_table[current_state, action] = (1 - ALPHA) * q_table[current_state, action] + \
                 ALPHA * (reward + GAMMA * np.max(q_table[new_state]))
 
