@@ -12,8 +12,11 @@ from collections import deque
 ALPHA = 0.005             # learning rate
 BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
-HIDDEN_SIZE = 256         # number of hidden nodes we have in our approximation
-BETA = 0.02
+HIDDEN_SIZE = 64         # number of hidden nodes we have in our approximation
+BETA = 1.0
+
+# DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device('cpu')
 
 
 # Q-table is replaced by a neural network
@@ -23,6 +26,8 @@ class Agent(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
+            nn.LeakyReLU(),
+            nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
             nn.LeakyReLU(),
             nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
         )
@@ -58,7 +63,7 @@ def get_discounted_rewards(rewards):
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_Gamma={GAMMA},LR={ALPHA},BS={BATCH_SIZE},NH={HIDDEN_SIZE}')
+    writer = SummaryWriter(comment=f'_Gamma={GAMMA},LR={ALPHA},BS={BATCH_SIZE},NH={HIDDEN_SIZE},BETA={BETA}')
 
     # create the environment
     env = gym.make('LunarLander-v2')
@@ -67,7 +72,7 @@ def main():
     agent = Agent(observation_space_size=env.observation_space.shape[0],
                   action_space_size=env.action_space.n,
                   hidden_size=HIDDEN_SIZE)
-
+    agent = agent.to(DEVICE)
     adam = optim.Adam(params=agent.parameters(), lr=ALPHA)
 
     total_rewards = deque([], maxlen=100)
@@ -81,10 +86,10 @@ def main():
         # reset the environment to a random initial state every epoch
         state = env.reset()
 
-        episode_actions = torch.empty(size=(0, ), dtype=torch.long)
-        episode_logits = torch.empty(size=(0, env.action_space.n))
-        epoch_logits = torch.empty(size=(0, env.action_space.n))
-        epoch_weighted_log_probs = torch.empty(size=(0, ), dtype=torch.float)
+        episode_actions = torch.empty(size=(0, ), dtype=torch.long, device=DEVICE)
+        episode_logits = torch.empty(size=(0, env.action_space.n), device=DEVICE)
+        epoch_logits = torch.empty(size=(0, env.action_space.n), device=DEVICE)  # used for entropy calculation
+        epoch_weighted_log_probs = torch.empty(size=(0, ), dtype=torch.float, device=DEVICE)
 
         average_rewards = np.empty(shape=(0, ), dtype=np.float)
         episode_rewards = np.empty(shape=(0, ), dtype=np.float)
@@ -101,7 +106,7 @@ def main():
                 env.render()
 
             # get the action logits from the neural network
-            action_logits = agent(torch.tensor(state).float().unsqueeze(dim=0))
+            action_logits = agent(torch.tensor(state).float().unsqueeze(dim=0).to(DEVICE))
 
             # append the logits to the episode logits list
             episode_logits = torch.cat((episode_logits, action_logits), dim=0)
@@ -113,7 +118,7 @@ def main():
             episode_actions = torch.cat((episode_actions, action), dim=0)
 
             # perform the action
-            state, reward, done, _ = env.step(action=action.item())
+            state, reward, done, _ = env.step(action=action.cpu().item())
 
             # append the reward to the rewards pool that we collect during the episode
             # we use the episode rewards for the discounted rewards to go calculation
@@ -139,7 +144,8 @@ def main():
                 # set the mask for the actions taken in the episode
                 mask = one_hot(episode_actions, num_classes=env.action_space.n)
                 episode_log_probs = torch.sum(mask.float() * log_softmax(episode_logits, dim=1), dim=1)
-                episode_weighted_log_probs = episode_log_probs * torch.tensor(discounted_rewards_to_go).float()
+                episode_weighted_log_probs = episode_log_probs * \
+                    torch.tensor(discounted_rewards_to_go).float().to(DEVICE)
                 epoch_weighted_log_probs = torch.cat((epoch_weighted_log_probs,
                                                       torch.sum(episode_weighted_log_probs).unsqueeze(dim=0)),
                                                      dim=0)
@@ -151,8 +157,8 @@ def main():
                 state = env.reset()
                 episode_rewards = np.empty(shape=(0, ), dtype=np.float)
                 average_rewards = np.empty(shape=(0,), dtype=np.float)
-                episode_actions = torch.empty(size=(0,), dtype=torch.long)
-                episode_logits = torch.empty(size=(0, env.action_space.n))
+                episode_actions = torch.empty(size=(0,), dtype=torch.long, device=DEVICE)
+                episode_logits = torch.empty(size=(0, env.action_space.n), device=DEVICE)
 
                 # won't render again this epoch
                 finished_rendering_this_epoch = True
