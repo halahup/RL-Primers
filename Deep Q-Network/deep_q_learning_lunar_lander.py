@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 # hyper-parameters for the Q-learning algorithm
-NUM_EPISODES = 10000     # number of episodes to run
+NUM_EPISODES = 1000     # number of episodes to run
 GAMMA = 0.9              # discount factor
 ALPHA = 0.01             # learning rate
 FRACTION_EXPLORE = 0.90  # fraction of the time to spend on any kind of exploring
@@ -41,12 +41,12 @@ def main():
     writer = SummaryWriter()
 
     # create the environment
-    env = gym.make('CartPole-v1')
+    env = gym.make('LunarLander-v2')
 
     # Q-table is replaced by the agent driven by a neural network architecture
     agent = Agent(observation_space_size=env.observation_space.shape[0],
                   action_space_size=env.action_space.n,
-                  hidden_size=16)
+                  hidden_size=128)
 
     criterion = nn.MSELoss(reduction='sum')
 
@@ -80,7 +80,7 @@ def main():
             env.render()
 
             # get the action values
-            action_values = agent(torch.Tensor(current_state).unsqueeze(dim=0))
+            action_values = agent(torch.tensor(current_state).unsqueeze(dim=0))
 
             # define the target values for the actions by detaching and deep copying the action vector
             action_values_target = action_values.detach().clone()
@@ -98,18 +98,17 @@ def main():
             new_state, reward, done, _ = env.step(action=action)
 
             # pass the new state through the agent to get the action values of the next state
-            new_state_action_values = agent(torch.Tensor(current_state).unsqueeze(dim=0))
+            new_state_action_values = agent(torch.tensor(current_state).unsqueeze(dim=0))
 
             if done:
                 action_value_target = reward
+
             else:
                 # define the target for the taken action
                 action_value_target = reward + GAMMA * torch.max(new_state_action_values).detach().item()
 
             # define the target vector for the agent
             action_values_target[0][action] = action_value_target
-
-            # print(action_values_target)
 
             # calculate the loss
             loss = criterion(action_values, action_values_target)
