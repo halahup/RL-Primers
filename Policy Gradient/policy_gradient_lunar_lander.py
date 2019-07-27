@@ -11,8 +11,8 @@ from collections import deque
 
 ALPHA = 0.005             # learning rate
 BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
-GAMMA = 0.99              # discount rate
-HIDDEN_SIZE = 64         # number of hidden nodes we have in our approximation
+GAMMA = 1.0               # discount rate
+HIDDEN_SIZE = 64          # number of hidden nodes we have in our approximation
 BETA = 1.0
 
 # DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -50,10 +50,10 @@ def calculate_loss(epoch_logits: torch.Tensor, weighted_log_probs: torch.Tensor)
     return policy_loss + entropy_bonus, entropy
 
 
-def get_discounted_rewards(rewards):
+def get_discounted_rewards(rewards: np.array, gamma: float):
     discounted_rewards = np.empty_like(rewards, dtype=np.float)
     for i in range(rewards.shape[0]):
-        gammas = np.full(shape=(rewards[i:].shape[0]), fill_value=GAMMA)
+        gammas = np.full(shape=(rewards[i:].shape[0]), fill_value=gamma)
         discounted_gammas = np.power(gammas, np.arange(rewards[i:].shape[0]))
         discounted_reward = np.sum(rewards[i:] * discounted_gammas)
         discounted_rewards[i] = discounted_reward
@@ -137,7 +137,7 @@ def main():
 
                 # here we turn the rewards we accumulated during the episode into the rewards-to-go:
                 # earlier actions are responsible for more than the later taken actions
-                discounted_rewards_to_go = get_discounted_rewards(rewards=episode_rewards)
+                discounted_rewards_to_go = get_discounted_rewards(rewards=episode_rewards, gamma=GAMMA)
                 discounted_rewards_to_go -= average_rewards  # baseline
                 total_rewards.append(np.sum(episode_rewards))
 
