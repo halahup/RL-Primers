@@ -11,7 +11,7 @@ from collections import deque
 
 ALPHA = 0.005             # learning rate
 BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
-GAMMA = 1.0               # discount rate
+GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 64          # number of hidden nodes we have in our approximation
 BETA = 0.1
 
