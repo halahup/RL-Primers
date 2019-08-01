@@ -10,13 +10,14 @@ from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.0001             # learning rate for the actor
-BETA = 0.0001              # learning rate for the critic
+ALPHA = 0.001              # learning rate for the actor
+BETA = 0.001               # learning rate for the critic
 GAMMA = 0.99               # discount rate
-HIDDEN_SIZE = 128          # number of hidden nodes we have in our approximation
+HIDDEN_SIZE = 32           # number of hidden nodes we have in our approximation
+PSI = 0.1                  # the entropy bonus multiplier
 
 NUM_EPISODES = 5000
-NUM_STEPS = 7
+NUM_STEPS = 4
 
 RENDER_EVERY = 100
 
@@ -108,13 +109,33 @@ def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.
     return discounted_rewards
 
 
+def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+
+    # calculate the probabilities
+    p = softmax(logits, dim=1)
+
+    # calculate the log probabilities
+    log_p = log_softmax(logits, dim=1)
+
+    # calculate the entropy
+    entropy = -1 * torch.sum(p * log_p, dim=1)
+
+    # calculate the mean entropy for the episode
+    mean_entropy = torch.mean(entropy, dim=0)
+
+    # calculate the entropy bonus
+    entropy_bonus = -1 * BETA * mean_entropy
+
+    return entropy_bonus, mean_entropy
+
+
 def main():
 
     # instantiate the tensorboard writer
     writer = SummaryWriter(comment=f'_A2C_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},NS={NUM_STEPS}')
 
     # create the environment
-    env = gym.make('LunarLander-v2')
+    env = gym.make('CartPole-v1')
 
     # Q-table is replaced by the agent driven by a neural network architecture
     actor = Actor(observation_space_size=env.observation_space.shape[0],
@@ -129,7 +150,7 @@ def main():
     critic = critic.to(DEVICE)
 
     adam_actor = optim.Adam(params=actor.parameters(), lr=ALPHA)
-    adam_critic = optim.Adam(params=critic.parameters(), lr=ALPHA)
+    adam_critic = optim.Adam(params=critic.parameters(), lr=BETA)
 
     total_rewards = deque([], maxlen=100)
 
@@ -139,13 +160,16 @@ def main():
         # initialize the environment state
         current_state = env.reset()
 
+        logits = torch.empty(size=(0, env.action_space.n), dtype=torch.float)
         action_log_probs = torch.empty(size=(0,), dtype=torch.float)
         state_values = torch.empty(size=(0,), dtype=torch.float)
         rewards = torch.empty(size=(0,), dtype=torch.float)
         states = np.empty(shape=(0, env.observation_space.shape[0]), dtype=np.float)
 
+        # set the done flag to false
         done = False
 
+        # init the total reward
         episode_total_reward = 0
 
         # accumulate data for 1 episode
@@ -156,6 +180,9 @@ def main():
 
             # get the action logits from the agent - (preferences)
             action_logits = actor(torch.tensor(current_state).float().unsqueeze(dim=0).to(DEVICE)).squeeze()
+
+            # append the logits
+            logits = torch.cat((logits, action_logits.detach().unsqueeze(dim=0)), dim=0)
 
             # sample an action according to the action distribution
             action = Categorical(logits=action_logits).sample()
@@ -208,6 +235,12 @@ def main():
         # calculate the policy loss
         policy_loss = -1 * torch.mean(action_log_probs * advantages)
 
+        # get the enrtopy bonus
+        entropy_bonus, mean_entropy = get_entropy_bonus(logits=logits)
+
+        # add the entopy bonus
+        policy_loss += (PSI * entropy_bonus)
+
         # calculate the policy gradient
         policy_loss.backward()
 
@@ -238,6 +271,8 @@ def main():
         writer.add_scalar(tag='Average Return over 100 episodes',
                           scalar_value=np.mean(total_rewards),
                           global_step=episode)
+
+        writer.add_scalar(tag='Mean Entropy', scalar_value=mean_entropy.item(), global_step=episode)
 
         # check if solved
         if np.mean(total_rewards) > 200:
