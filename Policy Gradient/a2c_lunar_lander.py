@@ -182,7 +182,7 @@ def main():
             action_logits = actor(torch.tensor(current_state).float().unsqueeze(dim=0).to(DEVICE)).squeeze()
 
             # append the logits
-            logits = torch.cat((logits, action_logits.detach().unsqueeze(dim=0)), dim=0)
+            logits = torch.cat((logits, action_logits.unsqueeze(dim=0)), dim=0)
 
             # sample an action according to the action distribution
             action = Categorical(logits=action_logits).sample()
