@@ -9,8 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 from collections import deque
 
 
-ALPHA = 0.005             # learning rate
-BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
+ALPHA = 1e-4              # learning rate
+BATCH_SIZE = 1            # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 64          # number of hidden nodes we have in our approximation
 BETA = 0.1
@@ -154,7 +154,7 @@ def get_discounted_rewards(rewards: np.array, gamma: float):
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_Gamma={GAMMA},LR={ALPHA},BS={BATCH_SIZE},NH={HIDDEN_SIZE},BETA={BETA}')
+    writer = SummaryWriter(comment=f'_PG_Gamma={GAMMA},LR={ALPHA},BS={BATCH_SIZE},NH={HIDDEN_SIZE},BETA={BETA}')
 
     # create the environment
     env = gym.make('CartPole-v1')
