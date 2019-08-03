@@ -16,7 +16,8 @@ GAMMA = 0.99               # discount rate
 HIDDEN_SIZE = 128          # number of hidden nodes we have in our approximation
 PSI = 0.1                  # the entropy bonus multiplier
 
-NUM_EPISODES = 5000
+NUM_EPISODES = 25
+NUM_EPOCHS = 5000
 NUM_STEPS = 7
 
 RENDER_EVERY = 100
@@ -129,6 +130,66 @@ def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
     return entropy_bonus, mean_entropy
 
 
+def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
+
+    # initialize the environment state
+    current_state = env.reset()
+
+    logits = torch.empty(size=(0, env.action_space.n), dtype=torch.float)
+    action_log_probs = torch.empty(size=(0,), dtype=torch.float)
+    state_values = torch.empty(size=(0,), dtype=torch.float)
+    rewards = torch.empty(size=(0,), dtype=torch.float)
+
+    # set the done flag to false
+    done = False
+
+    # init the total reward
+    episode_total_reward = 0
+
+    # accumulate data for 1 episode
+    while not done:
+
+        # if episode % RENDER_EVERY == 0:
+        #     env.render()
+
+        # get the action logits from the agent - (preferences)
+        action_logits = actor(torch.tensor(current_state).float().unsqueeze(dim=0).to(DEVICE)).squeeze()
+
+        # append the logits
+        logits = torch.cat((logits, action_logits.unsqueeze(dim=0)), dim=0)
+
+        # sample an action according to the action distribution
+        action = Categorical(logits=action_logits).sample()
+
+        # compute the log-probabilities of the actions
+        log_probs = log_softmax(action_logits, dim=0)
+
+        # get the log-probability of the chosen action
+        action_log_probs = torch.cat((action_log_probs, log_probs[action.item()].unsqueeze(dim=0)), dim=0)
+
+        # get the current state value
+        current_state_value = critic(torch.tensor(current_state).float().unsqueeze(dim=0).to(DEVICE))
+        state_values = torch.cat((state_values, current_state_value), dim=0)
+
+        # take the action
+        new_state, reward, done, _ = env.step(action.item())
+
+        episode_total_reward += reward
+
+        # save the reward
+        rewards = torch.cat((rewards, torch.tensor(reward, dtype=torch.float).unsqueeze(dim=0)), dim=0)
+
+        # if the episode is over
+        if done:
+            # total_rewards.append(episode_total_reward)
+            break
+
+        # update the state
+        current_state = new_state
+
+    return state_values, action_log_probs, rewards, logits, episode_total_reward
+
+
 def main():
 
     # instantiate the tensorboard writer
@@ -154,94 +215,78 @@ def main():
 
     total_rewards = deque([], maxlen=100)
 
-    # run for K episodes
-    for episode in range(NUM_EPISODES):
+    # run for N epochs
+    for epoch in range(NUM_EPOCHS):
 
-        # initialize the environment state
-        current_state = env.reset()
+        if epoch % RENDER_EVERY == 0:
+            env.render()
 
-        logits = torch.empty(size=(0, env.action_space.n), dtype=torch.float)
-        action_log_probs = torch.empty(size=(0,), dtype=torch.float)
-        state_values = torch.empty(size=(0,), dtype=torch.float)
-        rewards = torch.empty(size=(0,), dtype=torch.float)
+        # holder for the weighted log-probs
+        epoch_weighted_log_probs = torch.empty(size=(0,), dtype=torch.float)
 
-        # set the done flag to false
-        done = False
+        # holder for the epoch logits
+        epoch_logits = torch.empty(size=(0, env.action_space.n), dtype=torch.float)
 
-        # init the total reward
-        episode_total_reward = 0
+        # holder for the epoch state values
+        epoch_state_values = torch.empty(size=(0,), dtype=torch.float)
 
-        # accumulate data for 1 episode
-        while not done:
+        # holder for the epoch discounted returns
+        epoch_discounted_returns = torch.empty(size=(0,), dtype=torch.float)
 
-            if episode % RENDER_EVERY == 0:
-                env.render()
+        # collect the data from the episode
+        for episode in range(NUM_EPISODES):
 
-            # get the action logits from the agent - (preferences)
-            action_logits = actor(torch.tensor(current_state).float().unsqueeze(dim=0).to(DEVICE)).squeeze()
+            # play an episode
+            state_values, action_log_probs, rewards, logits, episode_total_reward = play_episode(env, actor, critic)
 
-            # append the logits
-            logits = torch.cat((logits, action_logits.unsqueeze(dim=0)), dim=0)
+            # calculate the sequence of the discounted returns Gt
+            discounted_returns = get_discounted_returns(rewards=rewards.numpy(),
+                                                        gamma=0.99,
+                                                        state_values=state_values.detach().squeeze(),
+                                                        n=NUM_STEPS)
 
-            # sample an action according to the action distribution
-            action = Categorical(logits=action_logits).sample()
+            # turn the discounted returns array into torch tensor
+            discounted_returns = torch.tensor(discounted_returns, dtype=torch.float)
 
-            # compute the log-probabilities of the actions
-            log_probs = log_softmax(action_logits, dim=0)
+            # calculate the advantage for time t: Q(s,a) - V(s)
+            advantages = discounted_returns - state_values.detach().squeeze()
 
-            # get the log-probability of the chosen action
-            action_log_probs = torch.cat((action_log_probs, log_probs[action.item()].unsqueeze(dim=0)), dim=0)
+            # append sum of logP * A
+            epoch_weighted_log_probs = torch.cat((epoch_weighted_log_probs,
+                                                  torch.sum(action_log_probs * advantages).unsqueeze(dim=0)), dim=0)
 
-            # get the current state value
-            current_state_value = critic(torch.tensor(current_state).float().unsqueeze(dim=0).to(DEVICE))
-            state_values = torch.cat((state_values, current_state_value), dim=0)
+            # append the logits for the entropy bonus
+            epoch_logits = torch.cat((epoch_logits, logits), dim=0)
 
-            # take the action
-            new_state, reward, done, _ = env.step(action.item())
+            # append the state values
+            epoch_state_values = torch.cat((epoch_state_values, state_values), dim=0)
 
-            episode_total_reward += reward
+            # append the discounted returns
+            epoch_discounted_returns = torch.cat((epoch_discounted_returns, discounted_returns), dim=0)
 
-            # save the reward
-            rewards = torch.cat((rewards, torch.tensor(reward, dtype=torch.float).unsqueeze(dim=0)), dim=0)
+            # append the episodic total rewards
+            total_rewards.append(episode_total_reward)
 
-            # if the episode is over
-            if done:
-                total_rewards.append(episode_total_reward)
-                break
+        # update the actor and the critic networks
 
-            # update the state
-            current_state = new_state
+        # calculate the policy loss
+        policy_loss = -1 * torch.mean(epoch_weighted_log_probs)
+
+        # get the entropy bonus
+        entropy_bonus, mean_entropy = get_entropy_bonus(logits=epoch_logits)
+
+        # add the entropy bonus
+        policy_loss += (PSI * entropy_bonus)
 
         # zero the gradient in both actor and the critic networks
         actor.zero_grad()
         critic.zero_grad()
 
-        # calculate the sequence of the discounted returns Gt
-        discounted_returns = get_discounted_returns(rewards=rewards.numpy(),
-                                                    gamma=0.99,
-                                                    state_values=state_values.detach().squeeze(),
-                                                    n=NUM_STEPS)
-
-        # turn the discounted returns array into torch tensor
-        discounted_returns = torch.tensor(discounted_returns, dtype=torch.float)
-
-        # calculate the advantage for time t: Q(s,a) - V(s)
-        advantages = discounted_returns - state_values.detach().squeeze()
-
-        # calculate the policy loss
-        policy_loss = -1 * torch.mean(action_log_probs * advantages)
-
-        # get the enrtopy bonus
-        entropy_bonus, mean_entropy = get_entropy_bonus(logits=logits)
-
-        # add the entopy bonus
-        policy_loss += (PSI * entropy_bonus)
-
         # calculate the policy gradient
         policy_loss.backward()
 
         # calculate the critic loss
-        critic_loss = mse_loss(input=state_values.squeeze(), target=discounted_returns)
+        critic_loss = mse_loss(input=epoch_state_values.squeeze(), target=epoch_discounted_returns)
 
         # calculate the gradient of the critic loss
         critic_loss.backward()
@@ -262,13 +307,13 @@ def main():
         adam_actor.step()
         adam_critic.step()
 
-        print("\r", f"Episode: {episode}, Avg Return per Epoch: {np.mean(total_rewards):.3f}", end="", flush=True)
+        print("\r", f"Epoch: {epoch}, Avg Return per Epoch: {np.mean(total_rewards):.3f}", end="", flush=True)
 
         writer.add_scalar(tag='Average Return over 100 episodes',
                           scalar_value=np.mean(total_rewards),
-                          global_step=episode)
+                          global_step=epoch)
 
-        writer.add_scalar(tag='Mean Entropy', scalar_value=mean_entropy.item(), global_step=episode)
+        writer.add_scalar(tag='Mean Entropy', scalar_value=mean_entropy.item(), global_step=epoch)
 
         # check if solved
         if np.mean(total_rewards) > 200:

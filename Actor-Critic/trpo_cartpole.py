@@ -8,6 +8,7 @@ from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils import clip_grad_value_
 from collections import deque
+from scipy.sparse.linalg import cg
 
 
 ALPHA = 0.0001              # learning rate for the actor
@@ -269,8 +270,14 @@ def main():
 
         # update the actor and the critic networks
 
-        # calculate the policy loss
-        policy_loss = -1 * torch.mean(epoch_weighted_log_probs)
+        # calculate the policy gradient estimate
+        policy_gradient = torch.mean(epoch_weighted_log_probs)
+        # policy_loss = -1 * torch.mean(epoch_weighted_log_probs)
+
+        print(policy_gradient)
+
+        raise NotImplementedError
+
 
         # get the entropy bonus
         entropy_bonus, mean_entropy = get_entropy_bonus(logits=epoch_logits)
