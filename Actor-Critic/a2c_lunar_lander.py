@@ -3,21 +3,21 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.functional import one_hot, log_softmax, softmax, mse_loss
+from torch.nn.functional import log_softmax, softmax, mse_loss
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.001              # learning rate for the actor
-BETA = 0.001               # learning rate for the critic
+ALPHA = 0.0001              # learning rate for the actor
+BETA = 0.0001               # learning rate for the critic
 GAMMA = 0.99               # discount rate
-HIDDEN_SIZE = 32           # number of hidden nodes we have in our approximation
+HIDDEN_SIZE = 128          # number of hidden nodes we have in our approximation
 PSI = 0.1                  # the entropy bonus multiplier
 
 NUM_EPISODES = 5000
-NUM_STEPS = 4
+NUM_STEPS = 7
 
 RENDER_EVERY = 100
 
@@ -124,7 +124,7 @@ def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
     mean_entropy = torch.mean(entropy, dim=0)
 
     # calculate the entropy bonus
-    entropy_bonus = -1 * BETA * mean_entropy
+    entropy_bonus = -1 * PSI * mean_entropy
 
     return entropy_bonus, mean_entropy
 
@@ -164,7 +164,6 @@ def main():
         action_log_probs = torch.empty(size=(0,), dtype=torch.float)
         state_values = torch.empty(size=(0,), dtype=torch.float)
         rewards = torch.empty(size=(0,), dtype=torch.float)
-        states = np.empty(shape=(0, env.observation_space.shape[0]), dtype=np.float)
 
         # set the done flag to false
         done = False
@@ -204,9 +203,6 @@ def main():
 
             # save the reward
             rewards = torch.cat((rewards, torch.tensor(reward, dtype=torch.float).unsqueeze(dim=0)), dim=0)
-
-            # save the state
-            states = np.concatenate((states, np.expand_dims(current_state, axis=0)), axis=0)
 
             # if the episode is over
             if done:
@@ -272,9 +268,7 @@ def main():
                           scalar_value=np.mean(total_rewards),
                           global_step=episode)
 
-        writer.add_scalar(tag='Mean Entropy',
-                          scalar_value=mean_entropy.item(),
-                          global_step=episode)
+        writer.add_scalar(tag='Mean Entropy', scalar_value=mean_entropy.item(), global_step=episode)
 
         # check if solved
         if np.mean(total_rewards) > 200:
