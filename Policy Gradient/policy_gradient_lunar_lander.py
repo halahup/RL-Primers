@@ -10,7 +10,7 @@ from collections import deque
 
 
 ALPHA = 0.005             # learning rate
-BATCH_SIZE = 50           # how many episodes we want to pack into an epoch
+BATCH_SIZE = 5            # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 64          # number of hidden nodes we have in our approximation
 BETA = 0.1
@@ -66,7 +66,8 @@ def play_episode(env: gym.Env, agent: nn.Module, finished_rendering_this_epoch: 
 
         # render the environment for the first episode in the epoch
         if not finished_rendering_this_epoch:
-            env.render()
+            # env.render()
+            pass
 
         # get the action logits from the agent - (preferences)
         action_logits = agent(torch.tensor(state).float().unsqueeze(dim=0).to(DEVICE))

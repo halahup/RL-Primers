@@ -10,15 +10,15 @@ from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.0001              # learning rate for the actor
-BETA = 0.0001               # learning rate for the critic
-GAMMA = 0.99                # discount rate
-HIDDEN_SIZE = 32            # number of hidden nodes we have in our approximation
-PSI = 10                    # the entropy bonus multiplier
+ALPHA = 5e-3               # learning rate for the actor
+BETA = 5e-3                # learning rate for the critic
+GAMMA = 0.99               # discount rate
+HIDDEN_SIZE = 64           # number of hidden nodes we have in our approximation
+PSI = 0.1                  # the entropy bonus multiplier
 
-NUM_EPISODES = 5
+NUM_EPISODES = 1
 NUM_EPOCHS = 5000
-NUM_STEPS = 15
+NUM_STEPS = 7
 
 RENDER_EVERY = 100
 
@@ -131,7 +131,20 @@ def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
 
 
 def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
-
+    """
+        Plays an episode of the environment.
+        Args:
+            env: the OpenAI environment
+            agent: the agent network we are using to generate the policy
+            finished_rendering_this_epoch: the rendering flag for the environment
+            episode: the current episode that we are running - needed so we could identify when we have a batch
+        Returns:
+            sum_weighted_log_probs: the sum of the log-prob of an action multiplied by the reward-to-go from that state
+            episode_logits: the logits of every step of the episode - needed to compute entropy for entropy bonus
+            finished_rendering_this_epoch: pass-through rendering flag
+            episode: pass-through episode counter
+            sum_of_rewards: sum of the rewards for the episode - needed for the average over 200 episode statistic
+    """
     # initialize the environment state
     current_state = env.reset()
 
@@ -148,6 +161,9 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
 
     # accumulate data for 1 episode
     while not done:
+
+        # if episode % RENDER_EVERY == 0:
+        #     env.render()
 
         # get the action logits from the agent - (preferences)
         action_logits = actor(torch.tensor(current_state).float().unsqueeze(dim=0).to(DEVICE)).squeeze()
@@ -193,7 +209,7 @@ def main():
     writer = SummaryWriter(comment=f'_A2C_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},NS={NUM_STEPS}')
 
     # create the environment
-    env = gym.make('LunarLander-v2')
+    env = gym.make('CartPole-v1')
 
     # Q-table is replaced by the agent driven by a neural network architecture
     actor = Actor(observation_space_size=env.observation_space.shape[0],

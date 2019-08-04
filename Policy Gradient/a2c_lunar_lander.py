@@ -10,11 +10,11 @@ from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.0001              # learning rate for the actor
-BETA = 0.0001               # learning rate for the critic
-GAMMA = 0.99                # discount rate
-HIDDEN_SIZE = 32            # number of hidden nodes we have in our approximation
-PSI = 10                    # the entropy bonus multiplier
+ALPHA = 5e-3               # learning rate for the actor
+BETA = 5e-3                # learning rate for the critic
+GAMMA = 0.99               # discount rate
+HIDDEN_SIZE = 64           # number of hidden nodes we have in our approximation
+PSI = 0.1                  # the entropy bonus multiplier
 
 NUM_EPISODES = 5
 NUM_EPOCHS = 5000
@@ -148,6 +148,9 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
 
     # accumulate data for 1 episode
     while not done:
+
+        # if episode % RENDER_EVERY == 0:
+        #     env.render()
 
         # get the action logits from the agent - (preferences)
         action_logits = actor(torch.tensor(current_state).float().unsqueeze(dim=0).to(DEVICE)).squeeze()

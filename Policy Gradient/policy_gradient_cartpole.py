@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from collections import deque
 
 
-ALPHA = 1e-4              # learning rate
+ALPHA = 5e-3              # learning rate
 BATCH_SIZE = 1            # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 64          # number of hidden nodes we have in our approximation
@@ -66,7 +66,8 @@ def play_episode(env: gym.Env, agent: nn.Module, finished_rendering_this_epoch: 
 
         # render the environment for the first episode in the epoch
         if not finished_rendering_this_epoch:
-            env.render()
+            # env.render()
+            pass
 
         # get the action logits from the agent - (preferences)
         action_logits = agent(torch.tensor(state).float().unsqueeze(dim=0).to(DEVICE))

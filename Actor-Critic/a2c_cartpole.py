@@ -131,7 +131,20 @@ def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
 
 
 def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
-
+    """
+        Plays an episode of the environment.
+        Args:
+            env: the OpenAI environment
+            agent: the agent network we are using to generate the policy
+            finished_rendering_this_epoch: the rendering flag for the environment
+            episode: the current episode that we are running - needed so we could identify when we have a batch
+        Returns:
+            sum_weighted_log_probs: the sum of the log-prob of an action multiplied by the reward-to-go from that state
+            episode_logits: the logits of every step of the episode - needed to compute entropy for entropy bonus
+            finished_rendering_this_epoch: pass-through rendering flag
+            episode: pass-through episode counter
+            sum_of_rewards: sum of the rewards for the episode - needed for the average over 200 episode statistic
+    """
     # initialize the environment state
     current_state = env.reset()
 
