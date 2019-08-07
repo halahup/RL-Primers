@@ -10,15 +10,15 @@ from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 5e-3               # learning rate for the actor
-BETA = 5e-3                # learning rate for the critic
+ALPHA = 0.0001              # learning rate for the actor
+BETA = 0.0001               # learning rate for the critic
 GAMMA = 0.99               # discount rate
-HIDDEN_SIZE = 64           # number of hidden nodes we have in our approximation
+LAMBDA = 0.9
+HIDDEN_SIZE = 128          # number of hidden nodes we have in our approximation
 PSI = 0.1                  # the entropy bonus multiplier
 
-NUM_EPISODES = 5
+NUM_EPISODES = 25
 NUM_EPOCHS = 5000
-NUM_STEPS = 15
 
 RENDER_EVERY = 100
 
@@ -61,7 +61,7 @@ class Critic(nn.Module):
         return x
 
 
-def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.Tensor, n: int):
+def get_Ak(rewards: np.array, gamma: float, state_values: np.array):
     """
         Computes the array of discounted rewards [Gt:t+1] for the episode. See reference on p.143 S&B.
         Args:
@@ -72,12 +72,7 @@ def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.
         Returns:
             discounted_rewards: the sequence of the discounted returns from time step t
     """
-    discounted_rewards = np.empty_like(rewards, dtype=np.float)
-    gamma_array = np.full(shape=(n,), fill_value=gamma)
-    power_gamma_array = np.power(gamma_array, np.arange(n))
-
-    # turn the state values torch tensor into the numpy array
-    state_values = state_values.numpy()
+    deltas = np.empty_like(rewards, dtype=np.float)
 
     # define the end of sequence
     T = rewards.shape[0]
@@ -85,29 +80,24 @@ def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.
     # for every time step in the sequence
     for t in range(T):
 
-        # check if we can bootstrap
-        if t+n < T:
+        # check if we can discount
+        if t < T - 1:
+            delta_t = rewards[t] + gamma * state_values[t+1] - state_values[t]
 
-            # calculate the bootstrapped return
-            Gt = np.sum(power_gamma_array[:-1] * rewards[t:(t+n)-1]) + power_gamma_array[-1] * state_values[t+n]
-
-        # if we can't bootstrap anymore
         else:
 
-            # check if we can discount
-            if t < T-1:
+            # the last reward
+            delta_t = rewards[T-1]
 
-                # compute the monte carlo return
-                Gt = np.sum(power_gamma_array[:rewards[t:T].shape[0]] * rewards[t:T])
+        deltas[t] = delta_t
 
-            else:
+    return deltas
 
-                # the last reward
-                Gt = rewards[T-1]
 
-        discounted_rewards[t] = Gt
-
-    return discounted_rewards
+def get_discounted_rewards(rewards: np.array, gamma: float):
+    gamma_array = np.full(shape=(rewards.shape[0],), fill_value=gamma)
+    power_gamma_array = np.power(gamma_array, np.arange(rewards.shape[0]))
+    return np.sum(power_gamma_array * rewards)
 
 
 def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
@@ -131,7 +121,18 @@ def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
 
 
 def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
+    """
+        Plays an episode of the environment.
+        Args:
+            env: the OpenAI environment
 
+        Returns:
+            sum_weighted_log_probs: the sum of the log-prob of an action multiplied by the reward-to-go from that state
+            episode_logits: the logits of every step of the episode - needed to compute entropy for entropy bonus
+            finished_rendering_this_epoch: pass-through rendering flag
+            episode: pass-through episode counter
+            sum_of_rewards: sum of the rewards for the episode - needed for the average over 200 episode statistic
+    """
     # initialize the environment state
     current_state = env.reset()
 
@@ -193,10 +194,10 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_A2C_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},NS={NUM_STEPS}')
+    writer = SummaryWriter(comment=f'_A2C_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE}')
 
     # create the environment
-    env = gym.make('LunarLander-v2')
+    env = gym.make('CartPole-v1')
 
     # Q-table is replaced by the agent driven by a neural network architecture
     actor = Actor(observation_space_size=env.observation_space.shape[0],
@@ -218,8 +219,8 @@ def main():
     # run for N epochs
     for epoch in range(NUM_EPOCHS):
 
-        if epoch % RENDER_EVERY == 0:
-            env.render()
+        # if epoch % RENDER_EVERY == 0:
+        #     env.render()
 
         # holder for the weighted log-probs
         epoch_weighted_log_probs = torch.empty(size=(0,), dtype=torch.float)
@@ -239,17 +240,32 @@ def main():
             # play an episode
             state_values, action_log_probs, rewards, logits, episode_total_reward = play_episode(env, actor, critic)
 
-            # calculate the sequence of the discounted returns Gt
-            discounted_returns = get_discounted_returns(rewards=rewards.numpy(),
-                                                        gamma=0.99,
-                                                        state_values=state_values.detach().squeeze(),
-                                                        n=NUM_STEPS)
+            deltas = get_Ak(rewards=rewards.numpy(), gamma=GAMMA, state_values=state_values.detach().numpy())
 
-            # turn the discounted returns array into torch tensor
-            discounted_returns = torch.tensor(discounted_returns, dtype=torch.float)
+            weight_array = np.full(shape=(deltas.shape[0],), fill_value=GAMMA * LAMBDA)
+            power_weight_array = np.power(weight_array, np.arange(deltas.shape[0]))
 
-            # calculate the advantage for time t: Q(s,a) - V(s)
-            advantages = discounted_returns - state_values.detach().squeeze()
+
+
+            print(deltas)
+
+            raise NotImplementedError
+
+            # N x T
+            Aks = np.empty(shape=(0, rewards.shape[0]), dtype=np.float)
+
+            for N in range(1, rewards.shape[0]+1):
+                Ak = get_Ak(rewards=rewards.numpy(),
+                            gamma=GAMMA,
+                            state_values=state_values.detach().squeeze(),
+                            n=N)
+
+                Aks = np.concatenate((Aks, Ak.reshape(1, Ak.shape[0])), axis=0)
+
+            lmbdas = np.full(shape=(Aks.shape[1],), fill_value=LAMBDA)
+            lmbdas_array = np.power(lmbdas, np.arange(lmbdas.shape[0]))
+
+            advantages = torch.tensor((1 - LAMBDA) * np.sum(Aks.T * lmbdas_array, axis=1), dtype=torch.float)
 
             # append sum of logP * A
             epoch_weighted_log_probs = torch.cat((epoch_weighted_log_probs,
@@ -261,8 +277,13 @@ def main():
             # append the state values
             epoch_state_values = torch.cat((epoch_state_values, state_values), dim=0)
 
+            discounted_rewards = torch.tensor(get_discounted_rewards(rewards=rewards.numpy(), gamma=GAMMA), dtype=torch.float)
+
             # append the discounted returns
-            epoch_discounted_returns = torch.cat((epoch_discounted_returns, discounted_returns), dim=0)
+            epoch_discounted_returns = torch.cat((epoch_discounted_returns,
+                                                  discounted_rewards * torch.ones_like(advantages)), dim=0)
+
+            # print(epoch_discounted_returns.shape)
 
             # append the episodic total rewards
             total_rewards.append(episode_total_reward)

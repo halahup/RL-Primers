@@ -18,7 +18,7 @@ PSI = 0.1                  # the entropy bonus multiplier
 
 NUM_EPISODES = 25
 NUM_EPOCHS = 5000
-NUM_STEPS = 5
+NUM_STEPS = 3
 
 RENDER_EVERY = 100
 
