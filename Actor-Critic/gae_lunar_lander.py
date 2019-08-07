@@ -10,17 +10,17 @@ from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.0005              # learning rate for the actor
-BETA = 0.0005               # learning rate for the critic
+ALPHA = 0.001              # learning rate for the actor
+BETA = 0.001               # learning rate for the critic
 GAMMA = 0.99                # discount rate - the variance reduction coefficient
-LAMBDA = 0.95               # the lambda parameter for GAE
-HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
+LAMBDA = 1.00               # the lambda parameter for GAE
+HIDDEN_SIZE = 128           # number of hidden nodes we have in our approximation
 PSI = 0.1                   # the entropy bonus multiplier
 
-NUM_EPISODES = 25
+NUM_EPISODES = 10
 NUM_EPOCHS = 5000
 
-RENDER_EVERY = 100
+RENDER_EVERY = 50
 
 # DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 DEVICE = torch.device('cpu')
@@ -177,6 +177,8 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
     # accumulate data for 1 episode
     while not done:
 
+        # TODO: Fix rendering in the A2C model
+        # render the episode
         if epoch % RENDER_EVERY == 0 and episode == 0:
             env.render()
 
@@ -253,7 +255,7 @@ def main():
     writer = SummaryWriter(comment=f'_A2C_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE}')
 
     # create the environment
-    env = gym.make('CartPole-v1')
+    env = gym.make('LunarLander-v2')
 
     # Q-table is replaced by the agent driven by a neural network architecture
     actor = Actor(observation_space_size=env.observation_space.shape[0],
