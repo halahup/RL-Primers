@@ -10,15 +10,15 @@ from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.0001             # learning rate for the actor
-BETA = 0.0001              # learning rate for the critic
+ALPHA = 0.001              # learning rate for the actor
+BETA = 0.001               # learning rate for the critic
 GAMMA = 0.99               # discount rate
-HIDDEN_SIZE = 256          # number of hidden nodes we have in our approximation
+HIDDEN_SIZE = 128          # number of hidden nodes we have in our approximation
 PSI = 0.1                  # the entropy bonus multiplier
 
 NUM_EPISODES = 25
 NUM_EPOCHS = 5000
-NUM_STEPS = 7              # number of steps to bootstrap
+NUM_STEPS = 3
 
 RENDER_EVERY = 100
 
@@ -90,7 +90,7 @@ def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.
 
             # check if we can discount
             if t < T - 1:
-                Gt = rewards[t] + state_values[t+1]
+                Gt = rewards[t] + gamma * state_values[t+1]
 
             else:
 
@@ -147,10 +147,15 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
         Plays an episode of the environment.
         Args:
             env: the OpenAI environment
-            actor: the agent network we are using to generate the policy
-            critic: the critic network we are using to estimate the values of the states
+            agent: the agent network we are using to generate the policy
+            finished_rendering_this_epoch: the rendering flag for the environment
+            episode: the current episode that we are running - needed so we could identify when we have a batch
         Returns:
-            # TODO: add the return values to the docstring
+            sum_weighted_log_probs: the sum of the log-prob of an action multiplied by the reward-to-go from that state
+            episode_logits: the logits of every step of the episode - needed to compute entropy for entropy bonus
+            finished_rendering_this_epoch: pass-through rendering flag
+            episode: pass-through episode counter
+            sum_of_rewards: sum of the rewards for the episode - needed for the average over 200 episode statistic
     """
     # initialize the environment state
     current_state = env.reset()

@@ -90,7 +90,7 @@ def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.
 
             # check if we can discount
             if t < T - 1:
-                Gt = rewards[t] + state_values[t+1]
+                Gt = rewards[t] + gamma * state_values[t+1]
 
             else:
 
