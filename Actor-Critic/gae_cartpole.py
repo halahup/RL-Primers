@@ -3,19 +3,19 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.functional import log_softmax, softmax, mse_loss
+from torch.nn.functional import log_softmax, softmax, mse_loss, normalize
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.0001              # learning rate for the actor
-BETA = 0.0001               # learning rate for the critic
-GAMMA = 0.99               # discount rate
-LAMBDA = 0.9
-HIDDEN_SIZE = 128          # number of hidden nodes we have in our approximation
-PSI = 0.1                  # the entropy bonus multiplier
+ALPHA = 0.0005              # learning rate for the actor
+BETA = 0.0005               # learning rate for the critic
+GAMMA = 0.99                # discount rate - the variance reduction coefficient
+LAMBDA = 0.9                # the lambda parameter for GAE
+HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
+PSI = 0.1                   # the entropy bonus multiplier
 
 NUM_EPISODES = 25
 NUM_EPOCHS = 5000
@@ -40,6 +40,7 @@ class Actor(nn.Module):
         )
 
     def forward(self, x):
+        x = normalize(x, dim=1)
         x = self.net(x)
         return x
 
@@ -57,21 +58,22 @@ class Critic(nn.Module):
         )
 
     def forward(self, x):
+        x = normalize(x, dim=1)
         x = self.net(x)
         return x
 
 
-def get_Ak(rewards: np.array, gamma: float, state_values: np.array):
+def get_deltas(rewards: np.array, gamma: float, state_values: np.array):
     """
         Computes the array of discounted rewards [Gt:t+1] for the episode. See reference on p.143 S&B.
         Args:
             rewards: the sequence of the rewards obtained from running the episode
             gamma: the discounting factor
             state_values: teh values of the states calculated by the critic network
-            n: the horizon of the bootstrapping
         Returns:
             discounted_rewards: the sequence of the discounted returns from time step t
     """
+    # deltas placeholder
     deltas = np.empty_like(rewards, dtype=np.float)
 
     # define the end of sequence
@@ -80,13 +82,16 @@ def get_Ak(rewards: np.array, gamma: float, state_values: np.array):
     # for every time step in the sequence
     for t in range(T):
 
-        # check if we can discount
+        # check if we can discount (next state exists)
         if t < T - 1:
+
+            # if we can, define delta as reward + discounted value of the next state
             delta_t = rewards[t] + gamma * state_values[t+1] - state_values[t]
 
+        # if we can't discount
         else:
 
-            # the last reward
+            # define delta to be the last reward
             delta_t = rewards[T-1]
 
         deltas[t] = delta_t
@@ -240,32 +245,19 @@ def main():
             # play an episode
             state_values, action_log_probs, rewards, logits, episode_total_reward = play_episode(env, actor, critic)
 
-            deltas = get_Ak(rewards=rewards.numpy(), gamma=GAMMA, state_values=state_values.detach().numpy())
+            deltas = get_deltas(rewards=rewards.numpy(), gamma=GAMMA, state_values=state_values.detach().numpy())
 
             weight_array = np.full(shape=(deltas.shape[0],), fill_value=GAMMA * LAMBDA)
             power_weight_array = np.power(weight_array, np.arange(deltas.shape[0]))
 
+            T = rewards.shape[0]
 
+            advantages = np.empty_like(rewards)
 
-            print(deltas)
+            for t in range(T):
+                advantages[t] = np.sum(deltas[t:] * power_weight_array[:(T-t)])
 
-            raise NotImplementedError
-
-            # N x T
-            Aks = np.empty(shape=(0, rewards.shape[0]), dtype=np.float)
-
-            for N in range(1, rewards.shape[0]+1):
-                Ak = get_Ak(rewards=rewards.numpy(),
-                            gamma=GAMMA,
-                            state_values=state_values.detach().squeeze(),
-                            n=N)
-
-                Aks = np.concatenate((Aks, Ak.reshape(1, Ak.shape[0])), axis=0)
-
-            lmbdas = np.full(shape=(Aks.shape[1],), fill_value=LAMBDA)
-            lmbdas_array = np.power(lmbdas, np.arange(lmbdas.shape[0]))
-
-            advantages = torch.tensor((1 - LAMBDA) * np.sum(Aks.T * lmbdas_array, axis=1), dtype=torch.float)
+            advantages = torch.tensor(advantages, dtype=torch.float)
 
             # append sum of logP * A
             epoch_weighted_log_probs = torch.cat((epoch_weighted_log_probs,
