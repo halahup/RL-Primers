@@ -13,7 +13,7 @@ from collections import deque
 ALPHA = 0.0005              # learning rate for the actor
 BETA = 0.0005               # learning rate for the critic
 GAMMA = 0.99                # discount rate - the variance reduction coefficient
-LAMBDA = 0.9                # the lambda parameter for GAE
+LAMBDA = 0.92               # the lambda parameter for GAE
 HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
 PSI = 0.1                   # the entropy bonus multiplier
 
@@ -63,7 +63,7 @@ class Critic(nn.Module):
         return x
 
 
-def get_deltas(rewards: np.array, gamma: float, state_values: np.array):
+def get_deltas(rewards: np.array, gamma: float, state_values: np.array) -> np.array:
     """
         Computes the array of discounted rewards [Gt:t+1] for the episode. See reference on p.143 S&B.
         Args:
@@ -71,7 +71,7 @@ def get_deltas(rewards: np.array, gamma: float, state_values: np.array):
             gamma: the discounting factor
             state_values: teh values of the states calculated by the critic network
         Returns:
-            discounted_rewards: the sequence of the discounted returns from time step t
+            deltas: the sequence of the TD(1) errors from time step t
     """
     # deltas placeholder
     deltas = np.empty_like(rewards, dtype=np.float)
@@ -99,14 +99,33 @@ def get_deltas(rewards: np.array, gamma: float, state_values: np.array):
     return deltas
 
 
-def get_discounted_rewards(rewards: np.array, gamma: float):
-    gamma_array = np.full(shape=(rewards.shape[0],), fill_value=gamma)
-    power_gamma_array = np.power(gamma_array, np.arange(rewards.shape[0]))
-    return np.sum(power_gamma_array * rewards)
+def get_discounted_rewards(rewards: np.array, gamma: float) -> np.array:
+    """
+        Calculates the sequence of discounted rewards-to-go.
+        Args:
+            rewards: the sequence of observed rewards
+            gamma: the discount factor
+        Returns:
+            discounted_rewards: the sequence of the rewards-to-go
+    """
+    discounted_rewards = np.empty_like(rewards, dtype=np.float)
+    for i in range(rewards.shape[0]):
+        gammas = np.full(shape=(rewards[i:].shape[0]), fill_value=gamma)
+        discounted_gammas = np.power(gammas, np.arange(rewards[i:].shape[0]))
+        discounted_reward = np.sum(rewards[i:] * discounted_gammas)
+        discounted_rewards[i] = discounted_reward
+    return discounted_rewards
 
 
 def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
-
+    """
+        Calculates the entropy bonus.
+        Args:
+            logits: the logits of the actor network
+        Returns:
+            entropy_bonus: entropy bonus
+            mean_entropy: the mean entropy of the episode
+    """
     # calculate the probabilities
     p = softmax(logits, dim=1)
 
@@ -130,13 +149,14 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
         Plays an episode of the environment.
         Args:
             env: the OpenAI environment
-
+            actor: the policy network
+            critic: the state value network
         Returns:
-            sum_weighted_log_probs: the sum of the log-prob of an action multiplied by the reward-to-go from that state
-            episode_logits: the logits of every step of the episode - needed to compute entropy for entropy bonus
-            finished_rendering_this_epoch: pass-through rendering flag
-            episode: pass-through episode counter
-            sum_of_rewards: sum of the rewards for the episode - needed for the average over 200 episode statistic
+            state_values: the sequence of the state values, obtained by the critic network
+            action_log_probs: the log probabilities of the taken actions in the trajectory
+            rewards: the sequence of rewards
+            logits: logits of the policy network
+            episode_total_reward: the total amount of rewards obtained per episode
     """
     # initialize the environment state
     current_state = env.reset()
@@ -196,6 +216,35 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module):
     return state_values, action_log_probs, rewards, logits, episode_total_reward
 
 
+def calculate_GAE(deltas: np.array, gamma: float, lmbda: float) -> np.array:
+    """
+        Calculates the generalized advantage estimator.
+        Args:
+            deltas: the sequence of the deltas (1 step lookahead TD-errors)
+            gamma: the discount factor - variance reduction constant
+            lmbda: the lambda parameter of the GAE
+        Returns:
+            advantages: the sequence of generalized advantage estimates
+    """
+    # create the array of weights for the errors
+    weight_array = np.full(shape=(deltas.shape[0],), fill_value=gamma * lmbda)
+
+    # exponentiate the weights
+    power_weight_array = np.power(weight_array, np.arange(deltas.shape[0]))
+
+    # define the end of sequence
+    T = deltas.shape[0]
+
+    # placeholder for the GAE advantage estimates
+    advantages = np.empty_like(deltas)
+
+    # compute the advantage estimates according to the GAE
+    for t in range(T):
+        advantages[t] = np.sum(deltas[t:] * power_weight_array[:(T - t)])
+
+    return advantages
+
+
 def main():
 
     # instantiate the tensorboard writer
@@ -245,18 +294,13 @@ def main():
             # play an episode
             state_values, action_log_probs, rewards, logits, episode_total_reward = play_episode(env, actor, critic)
 
+            # get the 1 step lookahead TD-errors
             deltas = get_deltas(rewards=rewards.numpy(), gamma=GAMMA, state_values=state_values.detach().numpy())
 
-            weight_array = np.full(shape=(deltas.shape[0],), fill_value=GAMMA * LAMBDA)
-            power_weight_array = np.power(weight_array, np.arange(deltas.shape[0]))
+            # compute the advantage estimates
+            advantages = calculate_GAE(deltas=deltas, gamma=GAMMA, lmbda=LAMBDA)
 
-            T = rewards.shape[0]
-
-            advantages = np.empty_like(rewards)
-
-            for t in range(T):
-                advantages[t] = np.sum(deltas[t:] * power_weight_array[:(T-t)])
-
+            # define the advantages torch tensor
             advantages = torch.tensor(advantages, dtype=torch.float)
 
             # append sum of logP * A
@@ -274,8 +318,6 @@ def main():
             # append the discounted returns
             epoch_discounted_returns = torch.cat((epoch_discounted_returns,
                                                   discounted_rewards * torch.ones_like(advantages)), dim=0)
-
-            # print(epoch_discounted_returns.shape)
 
             # append the episodic total rewards
             total_rewards.append(episode_total_reward)
@@ -307,14 +349,6 @@ def main():
         # clip the gradients in the policy gradients and the critic loss gradients
         clip_grad_value_(parameters=actor.parameters(), clip_value=0.1)
         clip_grad_value_(parameters=critic.parameters(), clip_value=0.1)
-
-        # print("#" * 20, "Actor Parameters")
-        # for param in actor.parameters():
-        #     print(param.grad)
-        #
-        # print("#" * 20, "Critic Parameters")
-        # for param in critic.parameters():
-        #     print(param.grad)
 
         # update the actor and critic parameters
         adam_actor.step()
