@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.functional import log_softmax, softmax, mse_loss
+from torch.nn.functional import log_softmax, softmax, mse_loss, normalize
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils import clip_grad_value_
@@ -30,13 +30,14 @@ class Actor(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
         )
 
     def forward(self, x):
+        x = normalize(x, dim=1)
         x = self.net(x)
         return x
 
@@ -47,13 +48,14 @@ class Critic(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=1, bias=True)
         )
 
     def forward(self, x):
+        x = normalize(x, dim=1)
         x = self.net(x)
         return x
 
@@ -219,7 +221,7 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_A2C_CP_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},NS={NUM_STEPS}')
+    writer = SummaryWriter(comment=f'_A2C_LL_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},NS={NUM_STEPS}')
 
     # create the environment
     env = gym.make('LunarLander-v2')

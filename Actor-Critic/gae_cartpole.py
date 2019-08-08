@@ -30,9 +30,9 @@ class Actor(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
         )
 
@@ -48,9 +48,9 @@ class Critic(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=1, bias=True)
         )
 
@@ -247,7 +247,7 @@ def calculate_GAE(deltas: torch.Tensor, gamma: float, lmbda: float) -> torch.Ten
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_A2C_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE}')
+    writer = SummaryWriter(comment=f'_GAE_CP_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},LAMBDA={LAMBDA}')
 
     # create the environment
     env = gym.make('CartPole-v1')

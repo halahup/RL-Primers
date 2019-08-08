@@ -13,14 +13,14 @@ from collections import deque
 ALPHA = 0.0005              # learning rate for the actor
 BETA = 0.0005               # learning rate for the critic
 GAMMA = 0.99                # discount rate - the variance reduction coefficient
-LAMBDA = 0.95               # the lambda parameter for GAE
+LAMBDA = 0.90               # the lambda parameter for GAE
 HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
-PSI = 0.1                   # the entropy bonus multiplier
+PSI = 1.0                   # the entropy bonus multiplier
 
 BATCH_SIZE = 25             # number of episodes in a batch
 NUM_EPOCHS = 5000
 
-RENDER_EVERY = 100
+RENDER_EVERY = 25
 
 
 # Q-table is replaced by a neural network
@@ -30,9 +30,9 @@ class Actor(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
         )
 
@@ -48,9 +48,9 @@ class Critic(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=1, bias=True)
         )
 
@@ -247,7 +247,7 @@ def calculate_GAE(deltas: torch.Tensor, gamma: float, lmbda: float) -> torch.Ten
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_A2C_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE}')
+    writer = SummaryWriter(comment=f'_GAE_LL_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},LAMBDA={LAMBDA}')
 
     # create the environment
     env = gym.make('LunarLander-v2')

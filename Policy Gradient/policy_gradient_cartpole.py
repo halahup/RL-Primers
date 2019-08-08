@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.functional import one_hot, log_softmax, softmax
+from torch.nn.functional import one_hot, log_softmax, softmax, normalize
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from collections import deque
@@ -14,6 +14,8 @@ BATCH_SIZE = 1            # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
 HIDDEN_SIZE = 64          # number of hidden nodes we have in our approximation
 BETA = 0.1
+
+NUM_EPOCHS = 5000
 
 # DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 DEVICE = torch.device('cpu')
@@ -26,13 +28,14 @@ class Agent(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
         )
 
     def forward(self, x):
+        x = normalize(x, dim=1)
         x = self.net(x)
         return x
 
@@ -130,7 +133,15 @@ def play_episode(env: gym.Env, agent: nn.Module, finished_rendering_this_epoch: 
 
 
 def calculate_loss(epoch_logits: torch.Tensor, weighted_log_probs: torch.Tensor) -> (torch.Tensor, torch.Tensor):
-
+    """
+        Calculates the policy "loss" and the entropy bonus
+        Args:
+            epoch_logits: logits of the policy network we have collected over the epoch
+            weighted_log_probs: loP * W of the actions taken
+        Returns:
+            policy loss + the entropy bonus
+            entropy: needed for logging
+    """
     policy_loss = -1 * torch.mean(weighted_log_probs)
 
     # add the entropy bonus
@@ -142,7 +153,15 @@ def calculate_loss(epoch_logits: torch.Tensor, weighted_log_probs: torch.Tensor)
     return policy_loss + entropy_bonus, entropy
 
 
-def get_discounted_rewards(rewards: np.array, gamma: float):
+def get_discounted_rewards(rewards: np.array, gamma: float) -> np.array:
+    """
+        Calculates the sequence of discounted rewards-to-go.
+        Args:
+            rewards: the sequence of observed rewards
+            gamma: the discount factor
+        Returns:
+            discounted_rewards: the sequence of the rewards-to-go
+    """
     discounted_rewards = np.empty_like(rewards, dtype=np.float)
     for i in range(rewards.shape[0]):
         gammas = np.full(shape=(rewards[i:].shape[0]), fill_value=gamma)
@@ -155,7 +174,7 @@ def get_discounted_rewards(rewards: np.array, gamma: float):
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_PG_Gamma={GAMMA},LR={ALPHA},BS={BATCH_SIZE},NH={HIDDEN_SIZE},BETA={BETA}')
+    writer = SummaryWriter(comment=f'_PG_CP_Gamma={GAMMA},LR={ALPHA},BS={BATCH_SIZE},NH={HIDDEN_SIZE},BETA={BETA}')
 
     # create the environment
     env = gym.make('CartPole-v1')
@@ -183,7 +202,7 @@ def main():
     epoch_weighted_log_probs = torch.empty(size=(0,), dtype=torch.float, device=DEVICE)
 
     # epoch
-    while True:
+    for epoch in range(NUM_EPOCHS):
 
         # play an episode of the environment
         (episode_weighted_log_prob_trajectory,
