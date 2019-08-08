@@ -177,6 +177,7 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
     # accumulate data for 1 episode
     while not done:
 
+        # render the episode
         if epoch % RENDER_EVERY == 0 and episode == 0:
             env.render()
 
@@ -209,7 +210,6 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
 
         # if the episode is over
         if done:
-            # total_rewards.append(episode_total_reward)
             break
 
         # update the state

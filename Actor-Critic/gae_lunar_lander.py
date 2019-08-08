@@ -10,11 +10,11 @@ from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.001              # learning rate for the actor
-BETA = 0.001               # learning rate for the critic
+ALPHA = 0.001               # learning rate for the actor
+BETA = 0.001                # learning rate for the critic
 GAMMA = 0.99                # discount rate - the variance reduction coefficient
-LAMBDA = 1.00               # the lambda parameter for GAE
-HIDDEN_SIZE = 128           # number of hidden nodes we have in our approximation
+LAMBDA = 0.99               # the lambda parameter for GAE
+HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
 PSI = 0.1                   # the entropy bonus multiplier
 
 NUM_EPISODES = 10
@@ -211,7 +211,6 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
 
         # if the episode is over
         if done:
-            # total_rewards.append(episode_total_reward)
             break
 
         # update the state
