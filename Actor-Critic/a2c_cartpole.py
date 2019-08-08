@@ -16,7 +16,7 @@ GAMMA = 0.99                # discount rate
 HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
 PSI = 0.1                   # the entropy bonus multiplier
 
-NUM_EPISODES = 25
+BATCH_SIZE = 25             # number of episodes in a batch
 NUM_EPOCHS = 5000
 NUM_STEPS = 7               # number of steps to bootstrap after
 
@@ -58,7 +58,7 @@ class Critic(nn.Module):
         return x
 
 
-def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.Tensor, n: int):
+def get_discounted_returns(rewards: torch.Tensor, gamma: float, state_values: torch.Tensor, n: int):
     """
         Computes the array of discounted rewards [Gt:t+1] for the episode. See reference on p.143 S&B.
         Args:
@@ -69,12 +69,12 @@ def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.
         Returns:
             discounted_rewards: the sequence of the discounted returns from time step t
     """
-    discounted_rewards = np.empty_like(rewards, dtype=np.float)
-    gamma_array = np.full(shape=(n+1,), fill_value=gamma) if n != 1 else None
-    power_gamma_array = np.power(gamma_array, np.arange(n+1)) if n != 1 else None
+    discounted_rewards = torch.empty_like(rewards)
+    gamma_array = torch.full(size=(n+1,), fill_value=gamma) if n != 1 else None
+    power_gamma_array = torch.pow(gamma_array, torch.arange(n+1).float()) if n != 1 else None
 
-    # turn the state values torch tensor into the numpy array
-    state_values = state_values.numpy()
+    # # turn the state values torch tensor into the numpy array
+    # state_values = state_values.numpy()
 
     # define the end of sequence
     T = rewards.shape[0]
@@ -96,7 +96,7 @@ def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.
         # check if we can bootstrap
         elif t + n < T:
             # calculate the bootstrapped return
-            Gt = np.sum(power_gamma_array[:-1] * rewards[t:(t+n)]) + power_gamma_array[-1] * state_values[t+n]
+            Gt = torch.sum(power_gamma_array[:-1] * rewards[t:(t+n)]) + power_gamma_array[-1] * state_values[t+n]
 
         # if we can't bootstrap anymore
         else:
@@ -104,7 +104,7 @@ def get_discounted_returns(rewards: np.array, gamma: float, state_values: torch.
             # check if we can discount
             if t < T - 1:
                 # compute the monte carlo return
-                Gt = np.sum(power_gamma_array[:rewards[t:T].shape[0]] * rewards[t:T])
+                Gt = torch.sum(power_gamma_array[:rewards[t:T].shape[0]] * rewards[t:T])
 
             else:
                 # the last reward
@@ -201,6 +201,7 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
         # take the action
         new_state, reward, done, _ = env.step(action.item())
 
+        # increment reward
         episode_total_reward += reward
 
         # save the reward
@@ -255,7 +256,7 @@ def main():
         epoch_discounted_returns = torch.empty(size=(0,), dtype=torch.float)
 
         # collect the data from the episode
-        for episode in range(NUM_EPISODES):
+        for episode in range(BATCH_SIZE):
 
             # play an episode
             (state_values,
@@ -265,13 +266,13 @@ def main():
              episode_total_reward) = play_episode(env=env, actor=actor, critic=critic, epoch=epoch, episode=episode)
 
             # calculate the sequence of the discounted returns Gt
-            discounted_returns = get_discounted_returns(rewards=rewards.numpy(),
+            discounted_returns = get_discounted_returns(rewards=rewards,
                                                         gamma=GAMMA,
                                                         state_values=state_values.detach().squeeze(),
                                                         n=NUM_STEPS)
 
             # turn the discounted returns array into torch tensor
-            discounted_returns = torch.tensor(discounted_returns, dtype=torch.float)
+            # discounted_returns = torch.tensor(discounted_returns, dtype=torch.float)
 
             # calculate the advantage for time t: Q(s,a) - V(s)
             advantages = discounted_returns - state_values.detach().squeeze()
