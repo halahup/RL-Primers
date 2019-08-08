@@ -13,7 +13,7 @@ from collections import deque
 ALPHA = 0.0005              # learning rate for the actor
 BETA = 0.0005               # learning rate for the critic
 GAMMA = 0.99                # discount rate - the variance reduction coefficient
-LAMBDA = 0.95               # the lambda parameter for GAE
+LAMBDA = 0.99               # the lambda parameter for GAE
 HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
 PSI = 0.1                   # the entropy bonus multiplier
 
