@@ -9,11 +9,11 @@ from torch.utils.tensorboard import SummaryWriter
 from collections import deque
 
 
-ALPHA = 5e-3              # learning rate
+ALPHA = 0.0005              # learning rate
 BATCH_SIZE = 1            # how many episodes we want to pack into an epoch
 GAMMA = 0.99              # discount rate
-HIDDEN_SIZE = 64          # number of hidden nodes we have in our approximation
-BETA = 0.1
+HIDDEN_SIZE = 128          # number of hidden nodes we have in our approximation
+BETA = 1.0
 
 NUM_EPOCHS = 5000
 

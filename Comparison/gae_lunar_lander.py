@@ -10,17 +10,17 @@ from torch.nn.utils import clip_grad_value_
 from collections import deque
 
 
-ALPHA = 0.0005              # learning rate for the actor
-BETA = 0.0005               # learning rate for the critic
+ALPHA = 0.005               # learning rate for the actor
+BETA = 0.005                # learning rate for the critic
 GAMMA = 0.99                # discount rate - the variance reduction coefficient
-LAMBDA = 0.90               # the lambda parameter for GAE
+LAMBDA = 0.99               # the lambda parameter for GAE
 HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
-PSI = 1.0                   # the entropy bonus multiplier
+PSI = 5.0                   # the entropy bonus multiplier
 
-BATCH_SIZE = 25             # number of episodes in a batch
+BATCH_SIZE = 10              # number of episodes in a batch
 NUM_EPOCHS = 5000
 
-RENDER_EVERY = 25
+RENDER_EVERY = 10
 
 
 # Q-table is replaced by a neural network
@@ -247,7 +247,8 @@ def calculate_GAE(deltas: torch.Tensor, gamma: float, lmbda: float) -> torch.Ten
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_GAE_LL_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},LAMBDA={LAMBDA}')
+    writer = SummaryWriter(comment=f'_GAE_LL_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},'
+                                   f'NH={HIDDEN_SIZE},LAMBDA={LAMBDA},BS={BATCH_SIZE}')
 
     # create the environment
     env = gym.make('LunarLander-v2')
@@ -351,7 +352,7 @@ def main():
                           scalar_value=np.mean(total_rewards),
                           global_step=epoch)
 
-        writer.add_scalar(tag='Mean Entropy', scalar_value=mean_entropy.item(), global_step=epoch)
+        writer.add_scalar(tag='Entropy', scalar_value=mean_entropy.item(), global_step=epoch)
 
         # check if solved
         if np.mean(total_rewards) > 200:

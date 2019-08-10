@@ -8,19 +8,20 @@ from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils import clip_grad_value_
 from collections import deque
+import torch.multiprocessing as mp
 
 
-ALPHA = 0.0005              # learning rate for the actor
-BETA = 0.0005               # learning rate for the critic
+ALPHA = 0.005               # learning rate for the actor
+BETA = 0.005                # learning rate for the critic
 GAMMA = 0.99                # discount rate - the variance reduction coefficient
-LAMBDA = 0.95               # the lambda parameter for GAE
+LAMBDA = 0.90               # the lambda parameter for GAE
 HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
 PSI = 0.1                   # the entropy bonus multiplier
 
-BATCH_SIZE = 25             # number of episodes in a batch
+BATCH_SIZE = 20             # number of episodes in a batch
 NUM_EPOCHS = 5000
 
-RENDER_EVERY = 100
+RENDER_EVERY = 10
 
 
 # Q-table is replaced by a neural network
@@ -141,7 +142,7 @@ def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
     return entropy_bonus, mean_entropy
 
 
-def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, episode: int):
+def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, pid: int):
     """
         Plays an episode of the environment.
         Args:
@@ -149,7 +150,7 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
             actor: the policy network
             critic: the state value network
             epoch: epoch counter for rendering
-            episode: episode counter for rendering
+            pid: process id
         Returns:
             state_values: the sequence of the state values, obtained by the critic network
             action_log_probs: the log probabilities of the taken actions in the trajectory
@@ -174,8 +175,8 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
     # accumulate data for 1 episode
     while not done:
 
-        # render the episode
-        if epoch % RENDER_EVERY == 0 and episode == 0:
+        # render the episode only in the 1st process
+        if epoch % RENDER_EVERY == 0 and pid == 0:
             env.render()
 
         # get the action logits from the agent - (preferences)
@@ -244,10 +245,88 @@ def calculate_GAE(deltas: torch.Tensor, gamma: float, lmbda: float) -> torch.Ten
     return advantages
 
 
+def update_networks(env, actor, critic, adam_actor, adam_critic, epoch, return_dict, pid):
+
+    # holder for the weighted log-probs
+    epoch_weighted_log_probs = torch.empty(size=(0,), dtype=torch.float)
+
+    # holder for the epoch logits
+    epoch_logits = torch.empty(size=(0, env.action_space.n), dtype=torch.float)
+
+    # holder for the epoch state values
+    epoch_state_values = torch.empty(size=(0,), dtype=torch.float)
+
+    # holder for the epoch discounted returns
+    epoch_discounted_returns = torch.empty(size=(0,), dtype=torch.float)
+
+    # play an episode
+    (state_values,
+     action_log_probs,
+     rewards,
+     logits,
+     episode_total_reward) = play_episode(env, actor, critic, epoch, pid)
+
+    # get the 1 step lookahead TD-errors
+    deltas = get_deltas(rewards=rewards, gamma=GAMMA, state_values=state_values.detach())
+
+    # compute the advantage estimates
+    advantages = calculate_GAE(deltas=deltas, gamma=GAMMA, lmbda=LAMBDA)
+
+    # append sum of logP * A
+    epoch_weighted_log_probs = torch.cat((epoch_weighted_log_probs,
+                                          torch.sum(action_log_probs * advantages).unsqueeze(dim=0)), dim=0)
+
+    # append the logits for the entropy bonus
+    epoch_logits = torch.cat((epoch_logits, logits), dim=0)
+
+    # append the state values
+    epoch_state_values = torch.cat((epoch_state_values, state_values), dim=0)
+
+    # calculate the discounted rewards
+    discounted_rewards = get_discounted_rewards(rewards=rewards, gamma=GAMMA)
+
+    # append the discounted returns for the episode
+    epoch_discounted_returns = torch.cat((epoch_discounted_returns, discounted_rewards), dim=0)
+
+    # return the episode total reward out of the thread
+    return_dict[pid] = episode_total_reward
+
+    # calculate the policy loss
+    policy_loss = -1 * torch.mean(epoch_weighted_log_probs)
+
+    # get the entropy bonus
+    entropy_bonus, mean_entropy = get_entropy_bonus(logits=epoch_logits)
+
+    # add the entropy bonus
+    policy_loss += (PSI * entropy_bonus)
+
+    # zero the gradient in both actor and the critic networks
+    actor.zero_grad()
+    critic.zero_grad()
+
+    # calculate the policy gradient
+    policy_loss.backward()
+
+    # calculate the critic loss
+    critic_loss = mse_loss(input=epoch_state_values.squeeze(), target=epoch_discounted_returns)
+
+    # calculate the gradient of the critic loss
+    critic_loss.backward()
+
+    # clip the gradients in the policy gradients and the critic loss gradients
+    clip_grad_value_(parameters=actor.parameters(), clip_value=0.1)
+    clip_grad_value_(parameters=critic.parameters(), clip_value=0.1)
+
+    # update the actor and critic parameters
+    adam_actor.step()
+    adam_critic.step()
+
+
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_GAE_CP_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},NH={HIDDEN_SIZE},LAMBDA={LAMBDA}')
+    writer = SummaryWriter(comment=f'_AGAE_CP_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},'
+                                   f'NH={HIDDEN_SIZE},LAMBDA={LAMBDA},BS={BATCH_SIZE}')
 
     # create the environment
     env = gym.make('CartPole-v1')
@@ -260,6 +339,11 @@ def main():
     critic = Critic(observation_space_size=env.observation_space.shape[0],
                     hidden_size=HIDDEN_SIZE)
 
+    # share memory between the processes
+    actor.share_memory()
+    critic.share_memory()
+
+    # define the optimizers for the policy and state-value networks
     adam_actor = optim.Adam(params=actor.parameters(), lr=ALPHA)
     adam_critic = optim.Adam(params=critic.parameters(), lr=BETA)
 
@@ -268,92 +352,31 @@ def main():
     # run for N epochs
     for epoch in range(NUM_EPOCHS):
 
-        # holder for the weighted log-probs
-        epoch_weighted_log_probs = torch.empty(size=(0,), dtype=torch.float)
+        # a return dictionary for the total rewards
+        episode_reward_dict = mp.Manager().dict()
 
-        # holder for the epoch logits
-        epoch_logits = torch.empty(size=(0, env.action_space.n), dtype=torch.float)
+        # define the process pool
+        processes = [mp.Process(target=update_networks, args=(env, actor, critic, adam_actor,
+                                                              adam_critic, epoch,
+                                                              episode_reward_dict, pid,))
+                     for pid in range(BATCH_SIZE)]
 
-        # holder for the epoch state values
-        epoch_state_values = torch.empty(size=(0,), dtype=torch.float)
+        # run the processes
+        for process in processes:
+            process.start()
 
-        # holder for the epoch discounted returns
-        epoch_discounted_returns = torch.empty(size=(0,), dtype=torch.float)
+        # wait for the processes
+        for process in processes:
+            process.join()
 
-        # collect the data from the episode
-        for episode in range(BATCH_SIZE):
-
-            # play an episode
-            (state_values,
-             action_log_probs,
-             rewards,
-             logits,
-             episode_total_reward) = play_episode(env, actor, critic, epoch, episode)
-
-            # get the 1 step lookahead TD-errors
-            deltas = get_deltas(rewards=rewards, gamma=GAMMA, state_values=state_values.detach())
-
-            # compute the advantage estimates
-            advantages = calculate_GAE(deltas=deltas, gamma=GAMMA, lmbda=LAMBDA)
-
-            entropy = torch.mean(-1 * softmax(logits, dim=1) * log_softmax(logits, dim=1))
-
-            # append sum of logP * A
-            epoch_weighted_log_probs = torch.cat((epoch_weighted_log_probs,
-                                                  torch.sum(action_log_probs * (advantages + entropy)).unsqueeze(dim=0)), dim=0)
-
-            # append the logits for the entropy bonus
-            epoch_logits = torch.cat((epoch_logits, logits), dim=0)
-
-            # append the state values
-            epoch_state_values = torch.cat((epoch_state_values, state_values), dim=0)
-
-            # calculate the discounted rewards
-            discounted_rewards = get_discounted_rewards(rewards=rewards, gamma=GAMMA)
-
-            # append the discounted returns for the episode
-            epoch_discounted_returns = torch.cat((epoch_discounted_returns, discounted_rewards), dim=0)
-
-            # append the episodic total rewards
-            total_rewards.append(episode_total_reward)
-
-        # calculate the policy loss
-        policy_loss = -1 * torch.mean(epoch_weighted_log_probs)
-
-        # get the entropy bonus
-        entropy_bonus, mean_entropy = get_entropy_bonus(logits=epoch_logits)
-
-        # add the entropy bonus
-        policy_loss += (PSI * entropy_bonus)
-
-        # zero the gradient in both actor and the critic networks
-        actor.zero_grad()
-        critic.zero_grad()
-
-        # calculate the policy gradient
-        policy_loss.backward()
-
-        # calculate the critic loss
-        critic_loss = mse_loss(input=epoch_state_values.squeeze(), target=epoch_discounted_returns)
-
-        # calculate the gradient of the critic loss
-        critic_loss.backward()
-
-        # clip the gradients in the policy gradients and the critic loss gradients
-        clip_grad_value_(parameters=actor.parameters(), clip_value=0.1)
-        clip_grad_value_(parameters=critic.parameters(), clip_value=0.1)
-
-        # update the actor and critic parameters
-        adam_actor.step()
-        adam_critic.step()
+        # append the total rewards
+        total_rewards += episode_reward_dict.values()
 
         print("\r", f"Epoch: {epoch}, Avg Return per Epoch: {np.mean(total_rewards):.3f}", end="", flush=True)
 
         writer.add_scalar(tag='Average Return over 100 episodes',
                           scalar_value=np.mean(total_rewards),
                           global_step=epoch)
-
-        writer.add_scalar(tag='Mean Entropy', scalar_value=mean_entropy.item(), global_step=epoch)
 
         # check if solved
         if np.mean(total_rewards) > 200:
