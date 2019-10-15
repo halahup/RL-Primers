@@ -1,14 +1,11 @@
-## How to run
+### Policy Gradient With Mean Rewards Baseline, Rewards-To-Go and Entropy Bonus
 
-Run `python policy_gradient_lunar_lander`
+Base implementation of the policy gradient algorithm. This implementation uses `rewards-to-go` as the weight for the gradient.
+Also, the model uses policy `entropy bonus` and state-specific `baseline`.
 
-## Packages used
+The model can be trained on 2 environments (CartPole and LunarLander) without any modifications. In order to use the model for other OpenAI environments the code has to be slightly modified.
 
-(Latest versions)
+#### Run
 
-* Matplotlib
-* OpenAI Gym
-* Numpy
-* PyTorch
-* TensorBoard for PyTorch
-* python 3.6
+1. Create a conda environment from `reqs.yml` 
+2. Run `python policy_gradient.py --env LunarLander` or `python policy_gradient.py --env CartPole`
