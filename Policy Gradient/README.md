@@ -9,3 +9,10 @@ The model can be trained on 2 environments (CartPole and LunarLander) without an
 
 1. Create a conda environment from `reqs.yml` 
 2. Run `python policy_gradient.py --env LunarLander` or `python policy_gradient.py --env CartPole`
+
+
+#### Screenshots
+
+![lunar_lander_1](Policy Gradient/gifs/LL1.gif)
+
+![lunar_lander_2](Policy Gradient/gifs/LL3.gif)
