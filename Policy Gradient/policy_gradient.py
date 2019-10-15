@@ -7,6 +7,10 @@ from torch.nn.functional import one_hot, log_softmax, softmax, normalize
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from collections import deque
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--env', help='CartPole or LunarLander OpenAI gym environment', type=str)
 
 
 class Params:
@@ -40,8 +44,6 @@ class Agent(nn.Module):
 
 class PolicyGradient:
     def __init__(self, problem: str = "CartPole"):
-
-        assert(problem in ["CartPole", "LunarLander"])
 
         self.NUM_EPOCHS = Params.NUM_EPOCHS
         self.ALPHA = Params.ALPHA
@@ -284,7 +286,12 @@ class PolicyGradient:
 
 
 def main():
-    policy_gradient = PolicyGradient(problem='LunarLander')
+    args = parser.parse_args()
+    env = args.env
+
+    assert(env in ['CartPole', 'LunarLander'])
+
+    policy_gradient = PolicyGradient(problem=env)
     policy_gradient.solve_environment()
 
 
