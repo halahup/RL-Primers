@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.functional import log_softmax, softmax, mse_loss, normalize
+from torch.nn.init import kaiming_normal_
 from torch.distributions import Categorical
 from torch.utils.tensorboard import SummaryWriter
 from torch.nn.utils import clip_grad_value_
@@ -14,12 +15,12 @@ import torch.multiprocessing as mp
 ALPHA = 0.001               # learning rate for the actor
 BETA = 0.001                # learning rate for the critic
 GAMMA = 0.99                # discount rate
+EXP_RATE = 2.0              # rate parameter for the exponential sampling
 HIDDEN_SIZE = 256           # number of hidden nodes we have in our approximation
-PSI = 1.0                   # the entropy bonus multiplier
 
-BATCH_SIZE = 20             # number of episodes in a batch
+BATCH_SIZE = 8              # number of episodes in a batch
 NUM_EPOCHS = 5000
-NUM_STEPS = 50              # number of steps to bootstrap after
+NUM_STEPS = 500              # number of steps to bootstrap after
 
 RENDER_EVERY = 10
 
@@ -31,9 +32,9 @@ class Actor(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.PReLU(),
+            nn.PReLU(num_parameters=hidden_size),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.PReLU(),
+            nn.PReLU(num_parameters=hidden_size),
             nn.Linear(in_features=hidden_size, out_features=action_space_size, bias=True)
         )
 
@@ -49,9 +50,9 @@ class Critic(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(in_features=observation_space_size, out_features=hidden_size, bias=True),
-            nn.PReLU(),
+            nn.PReLU(num_parameters=hidden_size),
             nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=True),
-            nn.PReLU(),
+            nn.PReLU(num_parameters=hidden_size),
             nn.Linear(in_features=hidden_size, out_features=1, bias=True)
         )
 
@@ -140,7 +141,7 @@ def get_entropy_bonus(logits: torch.Tensor) -> (torch.Tensor, torch.Tensor):
     mean_entropy = torch.mean(entropy, dim=0)
 
     # calculate the entropy bonus
-    entropy_bonus = -1 * PSI * mean_entropy
+    entropy_bonus = -1 * mean_entropy
 
     return entropy_bonus, mean_entropy
 
@@ -220,19 +221,10 @@ def play_episode(env: gym.Env, actor: nn.Module, critic: nn.Module, epoch: int, 
     return state_values, action_log_probs, rewards, logits, episode_total_reward
 
 
-def update_networks(env, actor, critic, adam_actor, adam_critic, epoch, return_dict, pid):
+def run_worker(actor, critic, adam_actor, adam_critic, epoch, return_dict, pid):
 
-    # holder for the weighted log-probs
-    epoch_weighted_log_probs = torch.empty(size=(0,), dtype=torch.float)
-
-    # holder for the epoch logits
-    epoch_logits = torch.empty(size=(0, env.action_space.n), dtype=torch.float)
-
-    # holder for the epoch state values
-    epoch_state_values = torch.empty(size=(0,), dtype=torch.float)
-
-    # holder for the epoch discounted returns
-    epoch_discounted_returns = torch.empty(size=(0,), dtype=torch.float)
+    # create the environment
+    env = gym.make('LunarLander-v2')
 
     # play an episode
     (state_values,
@@ -251,30 +243,23 @@ def update_networks(env, actor, critic, adam_actor, adam_critic, epoch, return_d
     advantages = discounted_returns - state_values.detach().squeeze()
 
     # append sum of logP * A
-    epoch_weighted_log_probs = torch.cat((epoch_weighted_log_probs,
-                                          torch.sum(action_log_probs * advantages).unsqueeze(dim=0)), dim=0)
-
-    # append the logits for the entropy bonus
-    epoch_logits = torch.cat((epoch_logits, logits), dim=0)
-
-    # append the state values
-    epoch_state_values = torch.cat((epoch_state_values, state_values), dim=0)
-
-    # append the discounted returns
-    epoch_discounted_returns = torch.cat((epoch_discounted_returns, discounted_returns), dim=0)
+    weighted_log_probs = torch.sum(action_log_probs * advantages)
 
     # return the episode total reward out of the thread
     return_dict[pid] = episode_total_reward
 
     # - - UPDATE PARAMETERS - -
     # calculate the policy loss
-    policy_loss = -1 * torch.mean(epoch_weighted_log_probs)
+    policy_loss = -1 * torch.mean(weighted_log_probs)
 
     # get the entropy bonus
-    entropy_bonus, mean_entropy = get_entropy_bonus(logits=epoch_logits)
+    entropy_bonus, mean_entropy = get_entropy_bonus(logits=logits)
+
+    # sample the weights for the entropy bonus
+    psi = torch.distributions.exponential.Exponential(rate=EXP_RATE).sample()
 
     # add the entropy bonus
-    policy_loss += (PSI * entropy_bonus)
+    policy_loss += (psi * entropy_bonus)
 
     # zero the gradient in both actor and the critic networks
     actor.zero_grad()
@@ -284,7 +269,7 @@ def update_networks(env, actor, critic, adam_actor, adam_critic, epoch, return_d
     policy_loss.backward()
 
     # calculate the critic loss
-    critic_loss = mse_loss(input=epoch_state_values.squeeze(), target=epoch_discounted_returns)
+    critic_loss = mse_loss(input=state_values.squeeze(), target=discounted_returns)
 
     # calculate the gradient of the critic loss
     critic_loss.backward()
@@ -297,26 +282,38 @@ def update_networks(env, actor, critic, adam_actor, adam_critic, epoch, return_d
     adam_actor.step()
     adam_critic.step()
 
+    # close the environment
+    env.close()
+
+
+def init_network(network: nn.Module):
+    """
+        Initializes the network parameters.
+        Args:
+            network: the network whose parameters we want to initialize
+    """
+    for layer in network.children():
+        if type(layer) is nn.Linear:
+            kaiming_normal_(layer.parameters(), nonlinearity='leaky_relu')
+
 
 def main():
 
     # instantiate the tensorboard writer
-    writer = SummaryWriter(comment=f'_A3C_LL_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},'
+    writer = SummaryWriter(comment=f'_A3C_CP_Gamma={GAMMA},LRA={ALPHA},LRC={BETA},'
                                    f'NH={HIDDEN_SIZE},NS={NUM_STEPS},BS={BATCH_SIZE}')
 
-    # create the environment
-    env = gym.make('LunarLander-v2')
-
     # policy network
-    actor = Actor(observation_space_size=env.observation_space.shape[0],
-                  action_space_size=env.action_space.n,
-                  hidden_size=HIDDEN_SIZE)
+    actor = Actor(observation_space_size=8, action_space_size=4, hidden_size=HIDDEN_SIZE)
 
     # state-value network
-    critic = Critic(observation_space_size=env.observation_space.shape[0],
-                    hidden_size=HIDDEN_SIZE)
+    critic = Critic(observation_space_size=8, hidden_size=HIDDEN_SIZE)
 
-    # share the memory between the processes
+    # initialize the networks' parameters
+    init_network(actor)
+    init_network(critic)
+
+    # share memory between the processes
     actor.share_memory()
     critic.share_memory()
 
@@ -324,7 +321,6 @@ def main():
     adam_actor = optim.Adam(params=actor.parameters(), lr=ALPHA)
     adam_critic = optim.Adam(params=critic.parameters(), lr=BETA)
 
-    # queue for the total rewards calculation
     total_rewards = deque([], maxlen=100)
 
     # run for N epochs
@@ -333,21 +329,20 @@ def main():
         # a return dictionary for the total rewards
         episode_reward_dict = mp.Manager().dict()
 
-        # define the processes
-        processes = [mp.Process(target=update_networks, args=(env, actor, critic, adam_actor,
-                                                              adam_critic, epoch,
-                                                              episode_reward_dict, pid,))
+        # define the batch processes
+        processes = [mp.Process(target=run_worker, args=(actor, critic, adam_actor, adam_critic, epoch,
+                                                         episode_reward_dict, pid,))
                      for pid in range(BATCH_SIZE)]
 
-        # start the processes
+        # start the workers
         for process in processes:
             process.start()
 
-        # wait for the processes to finish
+        # wait for the workers to finish
         for process in processes:
             process.join()
 
-        # append the total rewards from the processes
+        # update the total rewards
         total_rewards += episode_reward_dict.values()
 
         print("\r", f"Epoch: {epoch}, Avg Return per Epoch: {np.mean(total_rewards):.3f}", end="", flush=True)
@@ -360,9 +355,6 @@ def main():
         if np.mean(total_rewards) > 200:
             print('\nSolved!')
             break
-
-    # close the environment
-    env.close()
 
     # close the writer
     writer.close()
