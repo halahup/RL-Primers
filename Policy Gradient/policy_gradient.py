@@ -292,7 +292,7 @@ def main():
 
     assert(env in ['CartPole', 'LunarLander'])
 
-    policy_gradient = PolicyGradient(problem=env)
+    policy_gradient = PolicyGradient(problem=env, use_cuda=use_cuda)
     policy_gradient.solve_environment()
 
 

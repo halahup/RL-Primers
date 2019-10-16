@@ -13,6 +13,8 @@ The model can be trained on 2 environments (CartPole and LunarLander) without an
 
 #### Screenshots
 
-![lunar_lander_1](gifs/LL1.gif)
+![lunar_lander_1](gifs/LL7.gif)
 
-![lunar_lander_2](gifs/LL3.gif)
+![lunar_lander_2](gifs/LL1.gif)
+
+![lunar_lander_3](gifs/LL3.gif)
