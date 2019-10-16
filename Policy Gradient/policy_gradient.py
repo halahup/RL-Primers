@@ -11,6 +11,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--env', help='CartPole or LunarLander OpenAI gym environment', type=str)
+parser.add_argument('--use_cuda', help='Use if you want to use CUDA', action='store_true')
 
 
 class Params:
@@ -20,7 +21,6 @@ class Params:
     GAMMA = 0.99        # discount rate
     HIDDEN_SIZE = 64    # number of hidden nodes we have in our dnn
     BETA = 0.1          # the entropy bonus multiplier
-    DEVICE = torch.device('cpu')
 
 
 # Q-table is replaced by a neural network
@@ -43,7 +43,7 @@ class Agent(nn.Module):
 
 
 class PolicyGradient:
-    def __init__(self, problem: str = "CartPole"):
+    def __init__(self, problem: str = "CartPole", use_cuda: bool = False):
 
         self.NUM_EPOCHS = Params.NUM_EPOCHS
         self.ALPHA = Params.ALPHA
@@ -51,7 +51,7 @@ class PolicyGradient:
         self.GAMMA = Params.GAMMA
         self.HIDDEN_SIZE = Params.HIDDEN_SIZE
         self.BETA = Params.BETA
-        self.DEVICE = Params.DEVICE
+        self.DEVICE = torch.device('cuda' if torch.cuda.is_available() and use_cuda else 'cpu')
 
         # instantiate the tensorboard writer
         self.writer = SummaryWriter(comment=f'_PG_CP_Gamma={self.GAMMA},'
@@ -288,6 +288,7 @@ class PolicyGradient:
 def main():
     args = parser.parse_args()
     env = args.env
+    use_cuda = args.use_cuda
 
     assert(env in ['CartPole', 'LunarLander'])
 
